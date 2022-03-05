@@ -10,6 +10,10 @@ Import the module
 import (
 	"github.com/dhamith93/systats"
 )
+
+func main() {
+    syStats := systats.New()
+}
 ```
 
 And use the methods to get the required and supported system stats.
@@ -18,7 +22,8 @@ And use the methods to get the required and supported system stats.
 
 ```go
 func main() {
-	memory, err := systats.GetMemory(systats.Megabyte)
+	syStats := systats.New()
+	memory, err := systats.GetMemory(syStats, systats.Megabyte)
 	if err != nil {
 		panic(err)
 	}
