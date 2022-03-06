@@ -13,7 +13,7 @@ Inactive(file):  1666156 kB
 Unevictable:          32 kB
 Mlocked:              32 kB
 SwapTotal:       2097148 kB
-SwapFree:        2097148 kB
+SwapFree:        2017148 kB
 Dirty:               528 kB
 Writeback:             0 kB
 AnonPages:       7143196 kB

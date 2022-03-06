@@ -19,3 +19,7 @@ func New() SyStats {
 func GetMemory(systats SyStats, unit string) (Memory, error) {
 	return getMemory(&systats, unit)
 }
+
+func GetSwap(systats SyStats, unit string) (Swap, error) {
+	return getSwap(&systats, unit)
+}
