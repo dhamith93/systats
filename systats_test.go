@@ -33,8 +33,8 @@ func TestGetMemoryKB(t *testing.T) {
 		return
 	}
 
-	if got.PrecentageUsed != 53.56737892069672 {
-		t.Errorf("Got invalid value. got: %f, want: %f", got.PrecentageUsed, 53.56737892069672)
+	if got.PercentageUsed != 53.56737892069672 {
+		t.Errorf("Got invalid value. got: %f, want: %f", got.PercentageUsed, 53.56737892069672)
 		return
 	}
 }
@@ -66,8 +66,8 @@ func TestGetMemoryMB(t *testing.T) {
 		return
 	}
 
-	if got.PrecentageUsed != 53.56737892069672 {
-		t.Errorf("Got invalid value. got: %f, want: %f", got.PrecentageUsed, 53.56737892069672)
+	if got.PercentageUsed != 53.56737892069672 {
+		t.Errorf("Got invalid value. got: %f, want: %f", got.PercentageUsed, 53.56737892069672)
 		return
 	}
 }
@@ -94,8 +94,8 @@ func TestGetSwapKB(t *testing.T) {
 		return
 	}
 
-	if got.PrecentageUsed != 3.814704541596492 {
-		t.Errorf("Got invalid value. got: %f, want: %f", got.PrecentageUsed, 3.814704541596492)
+	if got.PercentageUsed != 3.814704541596492 {
+		t.Errorf("Got invalid value. got: %f, want: %f", got.PercentageUsed, 3.814704541596492)
 		return
 	}
 }
@@ -122,8 +122,8 @@ func TestGetSwapMB(t *testing.T) {
 		return
 	}
 
-	if got.PrecentageUsed != 3.814704541596492 {
-		t.Errorf("Got invalid value. got: %f, want: %f", got.PrecentageUsed, 3.814704541596492)
+	if got.PercentageUsed != 3.814704541596492 {
+		t.Errorf("Got invalid value. got: %f, want: %f", got.PercentageUsed, 3.814704541596492)
 		return
 	}
 }
