@@ -10,7 +10,7 @@ import (
 )
 
 type Swap struct {
-	PrecentageUsed float64
+	PercentageUsed float64
 	Free           uint64
 	Used           uint64
 	Time           int64
@@ -44,8 +44,8 @@ func getSwap(systats *SyStats, unit string) (Swap, error) {
 
 	if output.Total > 0 {
 		output.Used = output.Total - output.Free
-		precentage := float64(output.Used) / float64(output.Total) * 100
-		output.PrecentageUsed = precentage
+		percentage := float64(output.Used) / float64(output.Total) * 100
+		output.PercentageUsed = percentage
 	}
 
 	output.Time = time.Now().Unix()
