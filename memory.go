@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/dhamith93/systats/internal/fileops"
-	"github.com/dhamith93/systats/internal/logger"
 	"github.com/dhamith93/systats/internal/strops"
 	"github.com/dhamith93/systats/internal/unitconv"
 )
@@ -71,23 +70,19 @@ func getMemory(systats *SyStats, unit string) (Memory, error) {
 
 	output.Time = time.Now().Unix()
 
-	convertToUnit(&output, unit)
+	if unit == Kilobyte {
+		output.Available = unitconv.KibToKB(output.Available)
+		output.Total = unitconv.KibToKB(output.Total)
+		output.Used = unitconv.KibToKB(output.Used)
+		output.Free = unitconv.KibToKB(output.Free)
+	} else if unit == Megabyte {
+		output.Available = unitconv.KibToMB(output.Available)
+		output.Total = unitconv.KibToMB(output.Total)
+		output.Used = unitconv.KibToMB(output.Used)
+		output.Free = unitconv.KibToMB(output.Free)
+	} else {
+		return output, errors.New(unit + " is not supported")
+	}
 
 	return output, nil
-}
-
-func convertToUnit(memory *Memory, unit string) {
-	if unit == Kilobyte {
-		memory.Available = unitconv.KibToKB(memory.Available)
-		memory.Total = unitconv.KibToKB(memory.Total)
-		memory.Used = unitconv.KibToKB(memory.Used)
-		memory.Free = unitconv.KibToKB(memory.Free)
-	} else if unit == Megabyte {
-		memory.Available = unitconv.KibToMB(memory.Available)
-		memory.Total = unitconv.KibToMB(memory.Total)
-		memory.Used = unitconv.KibToMB(memory.Used)
-		memory.Free = unitconv.KibToMB(memory.Free)
-	} else {
-		logger.Log("error", "unsupported unit")
-	}
 }
