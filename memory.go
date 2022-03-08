@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhamith93/systats/internal/fileops"
 	"github.com/dhamith93/systats/internal/strops"
 	"github.com/dhamith93/systats/internal/unitconv"
 )
@@ -20,19 +19,11 @@ type Memory struct {
 	Unit           string
 }
 
-func readMeminfoFile(path string) (string, error) {
-	if !fileops.IsFile(path) {
-		return "", errors.New(path + " file not found")
-	}
-
-	return fileops.ReadFile(path), nil
-}
-
 func getMemory(systats *SyStats, unit string) (Memory, error) {
 	output := Memory{}
 	output.Unit = unit
 
-	meminfoStr, err := readMeminfoFile(systats.MeminfoPath)
+	meminfoStr, err := readFile(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}

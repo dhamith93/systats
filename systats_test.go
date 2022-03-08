@@ -127,3 +127,29 @@ func TestGetSwapMB(t *testing.T) {
 		return
 	}
 }
+
+func TestGetCPU(t *testing.T) {
+	syStats := systats.SyStats{
+		CPUinfoFilePath: "./test_files/cpuinfo.txt",
+		StatFilePath:    "/proc/stat",
+	}
+	cpu, err := systats.GetCPU(syStats)
+	if err != nil {
+		t.Errorf("Get CPU returned error")
+	}
+
+	if cpu.Model != "Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz" {
+		t.Errorf("Got invalid value. got: %s, want: %s", cpu.Model, "Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz")
+		return
+	}
+
+	if cpu.NoOfCores != 4 {
+		t.Errorf("Got invalid value. got: %d, want: %d", cpu.NoOfCores, 4)
+		return
+	}
+
+	if len(cpu.CoreAvg) != 8 {
+		t.Errorf("Got invalid value. got: %d, want: %d", len(cpu.CoreAvg), 8)
+		return
+	}
+}

@@ -22,7 +22,7 @@ func getSwap(systats *SyStats, unit string) (Swap, error) {
 	output := Swap{}
 	output.Unit = unit
 
-	meminfoStr, err := readMeminfoFile(systats.MeminfoPath)
+	meminfoStr, err := readFile(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}
