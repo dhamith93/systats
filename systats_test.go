@@ -147,9 +147,4 @@ func TestGetCPU(t *testing.T) {
 		t.Errorf("Got invalid value. got: %d, want: %d", cpu.NoOfCores, 4)
 		return
 	}
-
-	if len(cpu.CoreAvg) != 8 {
-		t.Errorf("Got invalid value. got: %d, want: %d", len(cpu.CoreAvg), 8)
-		return
-	}
 }
