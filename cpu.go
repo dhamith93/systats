@@ -90,7 +90,7 @@ func processStatFileContents(output *CPU, statStr1 *string, statStr2 *string) {
 	statArr1 := processStatFile(statStr1)
 	statArr2 := processStatFile(statStr2)
 
-	for i, _ := range statArr1 {
+	for i := range statArr1 {
 		// user + system, and user+system+idle times
 		a1 := statArr1[i][0] + statArr1[i][1]
 		a2 := statArr1[i][0] + statArr1[i][1] + statArr1[i][2]
