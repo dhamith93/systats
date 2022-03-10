@@ -10,6 +10,9 @@ type SyStats struct {
 	MeminfoPath     string
 	StatFilePath    string
 	CPUinfoFilePath string
+	VersionPath     string
+	EtcPath         string
+	UptimePath      string
 }
 
 func New() SyStats {
@@ -17,6 +20,9 @@ func New() SyStats {
 		MeminfoPath:     "/proc/meminfo",
 		StatFilePath:    "/proc/stat",
 		CPUinfoFilePath: "/proc/cpuinfo",
+		VersionPath:     "/proc/version",
+		EtcPath:         "/etc/",
+		UptimePath:      "/proc/uptime",
 	}
 }
 
@@ -30,4 +36,8 @@ func GetSwap(systats SyStats, unit string) (Swap, error) {
 
 func GetCPU(systats SyStats) (CPU, error) {
 	return getCPU(&systats, 300)
+}
+
+func GetSystem(systats SyStats) (System, error) {
+	return getSystem(&systats)
 }

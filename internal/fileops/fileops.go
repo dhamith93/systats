@@ -1,8 +1,10 @@
 package fileops
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/dhamith93/systats/internal/logger"
 )
@@ -29,4 +31,19 @@ func WriteFile(path string, input string) {
 func IsFile(path string) bool {
 	_, err := os.Open(path)
 	return err == nil
+}
+
+func FindFileWithNameLike(dir string, name string) (string, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, file := range files {
+		if strings.Contains(file.Name(), name) {
+			return dir + "/" + file.Name(), nil
+		}
+	}
+
+	return "", errors.New("file " + name + " not found in " + dir)
 }

@@ -148,3 +148,35 @@ func TestGetCPU(t *testing.T) {
 		return
 	}
 }
+
+func TestGetSystem(t *testing.T) {
+	syStats := systats.SyStats{
+		EtcPath:     "./test_files/",
+		VersionPath: "./test_files/version.txt",
+		UptimePath:  "./test_files/uptime.txt",
+	}
+	system, err := systats.GetSystem(syStats)
+	if err != nil {
+		t.Errorf("Get System returned error %s", err.Error())
+	}
+
+	if system.OS != "Ubuntu 21.10" {
+		t.Errorf("Got invalid value. got: %s, want: %s", system.OS, "Ubuntu 21.10")
+		return
+	}
+
+	if system.Kernel != "5.13.0-30-generic" {
+		t.Errorf("Got invalid value. got: %s, want: %s", system.Kernel, "5.13.0-30-generic")
+		return
+	}
+
+	if system.UpTime != "3h20m58s" {
+		t.Errorf("Got invalid value. got: %s, want: %s", system.UpTime, "3h20m58s")
+		return
+	}
+
+	if system.TimeZone != "Colombo/Asia" {
+		t.Errorf("Got invalid value. got: %s, want: %s", system.TimeZone, "Colombo/Asia")
+		return
+	}
+}
