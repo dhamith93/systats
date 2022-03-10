@@ -180,3 +180,11 @@ func TestGetSystem(t *testing.T) {
 		return
 	}
 }
+
+func TestGetNetworks(t *testing.T) {
+	syStats := systats.New()
+	_, err := systats.GetNetworks(syStats)
+	if err != nil {
+		t.Errorf("Get Networks returned error %s", err.Error())
+	}
+}

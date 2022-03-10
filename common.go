@@ -3,6 +3,7 @@ package systats
 import (
 	"errors"
 	"os/exec"
+	"strings"
 
 	"github.com/dhamith93/systats/internal/fileops"
 )
@@ -31,4 +32,14 @@ func Execute(command string, isUsingPipes bool, params ...string) string {
 		return err.Error()
 	}
 	return string(stdout)
+}
+
+func GetExecPath(cmd string) string {
+	result := Execute("whereis", false, cmd)
+	result = strings.TrimSpace(result)
+	resultArr := strings.Fields(result)
+	if len(resultArr) == 1 {
+		return ""
+	}
+	return resultArr[1]
 }

@@ -41,3 +41,7 @@ func GetCPU(systats SyStats) (CPU, error) {
 func GetSystem(systats SyStats) (System, error) {
 	return getSystem(&systats)
 }
+
+func GetNetworks(systats SyStats) ([]Network, error) {
+	return getNetworks(&systats)
+}
