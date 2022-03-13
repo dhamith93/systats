@@ -42,7 +42,7 @@ Returns OS, Hostname, Kernel, Up time, last boot date, timezone, logged in users
 ```go
 func main() {
 	syStats := systats.New()
-	system, err := systats.getSystem(syStats)
+	system, err := systats.GetSystem(syStats)
 }
 ```
 
