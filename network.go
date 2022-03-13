@@ -21,7 +21,7 @@ func getNetworks(systats *SyStats) ([]Network, error) {
 	}
 
 	execCommand := ipCommand + " -o addr show scope global | awk '{split($4, a, \"/\"); print $2\" : \"a[1]}'"
-	result := Execute(execCommand, true)
+	result := ExecuteWithPipe(execCommand)
 	resultSplit := strings.Split(result, "\n")
 
 	for _, iface := range resultSplit {

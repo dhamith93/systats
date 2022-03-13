@@ -96,7 +96,7 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 
 func processLoggedInUsers(system *System, systats *SyStats) {
 	// NAME LINE TIME COMMENT
-	split := strings.Split(Execute("who", false), "\n")
+	split := strings.Split(Execute("who"), "\n")
 	system.LoggedInUsers = []User{}
 	for _, line := range split {
 		loggedInInfo := strings.Fields(line)
