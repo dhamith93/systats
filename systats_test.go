@@ -1,6 +1,7 @@
 package systats_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dhamith93/systats"
@@ -186,5 +187,27 @@ func TestGetNetworks(t *testing.T) {
 	_, err := systats.GetNetworks(syStats)
 	if err != nil {
 		t.Errorf("Get Networks returned error %s", err.Error())
+	}
+}
+
+func TestIsServiceRunning(t *testing.T) {
+	// gets first running service
+	output := systats.ExecuteWithPipe("service --status-all | awk '$2 == \"+\" {print $4}' | head -n 1")
+	output = strings.TrimSpace(output)
+	running := systats.IsServiceRunning(output)
+	if !running {
+		t.Errorf("IsServiceRunning(%s) returned %v, expected %v", output, running, true)
+	}
+}
+
+func TestGetTopProcesses(t *testing.T) {
+	_, err := systats.GetTopProcesses(10, "cpu")
+	if err != nil {
+		t.Errorf("GetTopProcesses(CPU) returned error %s", err.Error())
+	}
+
+	_, err = systats.GetTopProcesses(10, "memory")
+	if err != nil {
+		t.Errorf("GetTopProcesses(MEMORY) returned error %s", err.Error())
 	}
 }

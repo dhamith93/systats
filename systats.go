@@ -45,3 +45,17 @@ func GetSystem(systats SyStats) (System, error) {
 func GetNetworks(systats SyStats) ([]Network, error) {
 	return getNetworks(&systats)
 }
+
+func IsServiceRunning(service string) bool {
+	return isServiceRunning(service)
+}
+
+func GetTopProcesses(count int, sort string) ([]Process, error) {
+	if sort == "cpu" {
+		sort = "-pcpu"
+	}
+	if sort == "memory" {
+		sort = "-pmem"
+	}
+	return getTopProcesses(count, sort)
+}
