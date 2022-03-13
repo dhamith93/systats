@@ -1,7 +1,6 @@
 package systats_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -214,13 +213,9 @@ func TestGetTopProcesses(t *testing.T) {
 }
 
 func TestGetDisks(t *testing.T) {
-	disks, err := systats.GetDisks()
+	_, err := systats.GetDisks()
 	if err != nil {
 		t.Errorf("GetDisks() returned error %s", err.Error())
-	}
-	for _, disk := range disks {
-		disk.Convert(systats.Byte)
-		fmt.Println(disk)
 	}
 }
 
