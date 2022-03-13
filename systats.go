@@ -1,6 +1,7 @@
 package systats
 
 const (
+	Byte     string = "B"
 	Kilobyte string = "KB"
 	Megabyte string = "MB"
 	Gigabyte string = "GB"
@@ -58,4 +59,8 @@ func GetTopProcesses(count int, sort string) ([]Process, error) {
 		sort = "-pmem"
 	}
 	return getTopProcesses(count, sort)
+}
+
+func GetDisks() ([]Disk, error) {
+	return getDisks()
 }

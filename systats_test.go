@@ -1,6 +1,7 @@
 package systats_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -209,5 +210,58 @@ func TestGetTopProcesses(t *testing.T) {
 	_, err = systats.GetTopProcesses(10, "memory")
 	if err != nil {
 		t.Errorf("GetTopProcesses(MEMORY) returned error %s", err.Error())
+	}
+}
+
+func TestGetDisks(t *testing.T) {
+	disks, err := systats.GetDisks()
+	if err != nil {
+		t.Errorf("GetDisks() returned error %s", err.Error())
+	}
+	for _, disk := range disks {
+		disk.Convert(systats.Byte)
+		fmt.Println(disk)
+	}
+}
+
+func TestDiskConvert(t *testing.T) {
+	disk := systats.Disk{
+		FileSystem: "TEST",
+		Type:       "TEST",
+		MountedOn:  "TEST",
+		Usage: systats.DiskUsage{
+			Size:      117610516480,
+			Used:      107592122368,
+			Available: 3999989760,
+			Usage:     "97%",
+			Unit:      systats.Byte,
+		},
+	}
+	disk.Convert(systats.Megabyte)
+	if disk.Usage.Size != 112162 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Size, 112162)
+		return
+	}
+	if disk.Usage.Used != 102607 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Used, 102607)
+		return
+	}
+	if disk.Usage.Available != 3814 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Available, 3814)
+		return
+	}
+
+	disk.Convert(systats.Gigabyte)
+	if disk.Usage.Size != 109 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Size, 109)
+		return
+	}
+	if disk.Usage.Used != 100 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Used, 100)
+		return
+	}
+	if disk.Usage.Available != 3 {
+		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Available, 3)
+		return
 	}
 }
