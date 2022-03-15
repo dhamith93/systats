@@ -183,10 +183,27 @@ func TestGetSystem(t *testing.T) {
 }
 
 func TestGetNetworks(t *testing.T) {
-	syStats := systats.New()
-	_, err := systats.GetNetworks(syStats)
+	_, err := systats.GetNetworks()
 	if err != nil {
 		t.Errorf("Get Networks returned error %s", err.Error())
+	}
+}
+
+func TestGetNetworkUsage(t *testing.T) {
+	n, err := systats.GetNetworks()
+	if err != nil {
+		t.Errorf("Get Network Usage returned error %s", err.Error())
+	}
+
+	if len(n) > 0 {
+		out := systats.GetNetworkUsage(n[0].Interface)
+		if out.RxBytes == 0 {
+			t.Errorf("Got invalid value for Rx. got: %d, want: > %d", out.RxBytes, 0)
+		}
+
+		if out.TxBytes == 0 {
+			t.Errorf("Got invalid value for Tx. got: %d, want: > %d", out.TxBytes, 0)
+		}
 	}
 }
 

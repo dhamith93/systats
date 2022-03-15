@@ -43,8 +43,12 @@ func GetSystem(systats SyStats) (System, error) {
 	return getSystem(&systats)
 }
 
-func GetNetworks(systats SyStats) ([]Network, error) {
-	return getNetworks(&systats)
+func GetNetworks() ([]Network, error) {
+	return getNetworks()
+}
+
+func GetNetworkUsage(networkInterface string) NetworkUsage {
+	return getNetworkUsage(networkInterface)
 }
 
 func IsServiceRunning(service string) bool {

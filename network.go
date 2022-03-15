@@ -9,11 +9,15 @@ import (
 type Network struct {
 	Interface string
 	Ip        string
-	RxBytes   uint64
-	TxBytes   uint64
+	Usage     NetworkUsage
 }
 
-func getNetworks(systats *SyStats) ([]Network, error) {
+type NetworkUsage struct {
+	RxBytes uint64
+	TxBytes uint64
+}
+
+func getNetworks() ([]Network, error) {
 	output := []Network{}
 	ipCommand := GetExecPath("ip")
 	if ipCommand == "" {
@@ -32,12 +36,21 @@ func getNetworks(systats *SyStats) ([]Network, error) {
 		output = append(output, Network{
 			Interface: ifaceArray[0],
 			Ip:        ifaceArray[2],
-			RxBytes:   getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
-			TxBytes:   getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
+			Usage: NetworkUsage{
+				RxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
+				TxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
+			},
 		})
 	}
 
 	return output, nil
+}
+
+func getNetworkUsage(networkInterface string) NetworkUsage {
+	return NetworkUsage{
+		RxBytes: getBytes("/sys/class/net/" + networkInterface + "/statistics/rx_bytes"),
+		TxBytes: getBytes("/sys/class/net/" + networkInterface + "/statistics/tx_bytes"),
+	}
 }
 
 func getBytes(path string) uint64 {
