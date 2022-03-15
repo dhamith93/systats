@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Disk holds information on single disk
 type Disk struct {
 	FileSystem string
 	Type       string
@@ -13,6 +14,7 @@ type Disk struct {
 	Inodes     InodeUsage
 }
 
+// DiskUsage holds information on single disk usage information
 type DiskUsage struct {
 	Size      uint64
 	Used      uint64
@@ -21,6 +23,7 @@ type DiskUsage struct {
 	Unit      string
 }
 
+// InodeUsage holds information on single disk inode usage
 type InodeUsage struct {
 	Inodes    uint64
 	Available uint64

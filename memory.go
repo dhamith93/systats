@@ -9,6 +9,7 @@ import (
 	"github.com/dhamith93/systats/internal/unitconv"
 )
 
+// Memory holds information on system memory usage
 type Memory struct {
 	PercentageUsed float64
 	Available      uint64

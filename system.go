@@ -10,6 +10,7 @@ import (
 	"github.com/dhamith93/systats/internal/fileops"
 )
 
+// System holds operating system information
 type System struct {
 	HostName      string
 	OS            string
@@ -21,6 +22,7 @@ type System struct {
 	TimeZone      string
 }
 
+// User holds logged in user information
 type User struct {
 	Username     string
 	RemoteHost   string

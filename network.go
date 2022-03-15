@@ -6,12 +6,14 @@ import (
 	"strings"
 )
 
+// Network holds interface information
 type Network struct {
 	Interface string
 	Ip        string
 	Usage     NetworkUsage
 }
 
+// NetworkUsage holds Tx/Rx usage information
 type NetworkUsage struct {
 	RxBytes uint64
 	TxBytes uint64

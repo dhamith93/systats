@@ -7,6 +7,7 @@ const (
 	Gigabyte string = "GB"
 )
 
+// SyStats holds information used to collect data
 type SyStats struct {
 	MeminfoPath     string
 	StatFilePath    string

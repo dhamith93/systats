@@ -9,6 +9,7 @@ import (
 	"github.com/dhamith93/systats/internal/strops"
 )
 
+// CPU holds information on CPU and CPU usage
 type CPU struct {
 	LoadAvg   int
 	CoreAvg   []int

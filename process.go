@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Process holds information on single process
 type Process struct {
 	Pid      int
 	ExecPath string

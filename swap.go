@@ -9,6 +9,7 @@ import (
 	"github.com/dhamith93/systats/internal/unitconv"
 )
 
+// Swap holds information on system swap usage
 type Swap struct {
 	PercentageUsed float64
 	Free           uint64
