@@ -2,6 +2,9 @@ package systats
 
 import (
 	"errors"
+	"fmt"
+	"net"
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -62,4 +65,23 @@ func getBytes(path string) uint64 {
 	}
 	out, _ := strconv.ParseUint(strings.TrimSpace(result), 10, 64)
 	return out
+}
+
+func isPortOpen(port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func canConnect(url string) (bool, error) {
+	status := false
+	resp, err := http.Get(url)
+	if err == nil {
+		status = true
+	}
+	defer resp.Body.Close()
+	return status, err
 }

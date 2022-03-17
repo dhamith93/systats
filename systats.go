@@ -69,3 +69,11 @@ func GetTopProcesses(count int, sort string) ([]Process, error) {
 func GetDisks() ([]Disk, error) {
 	return getDisks()
 }
+
+func IsPortOpen(port int) bool {
+	return isPortOpen(port)
+}
+
+func CanConnectExternal(url string) (bool, error) {
+	return canConnect(url)
+}

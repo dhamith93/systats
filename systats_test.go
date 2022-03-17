@@ -277,3 +277,22 @@ func TestDiskConvert(t *testing.T) {
 		return
 	}
 }
+
+func TestIsPortOpen(t *testing.T) {
+	status := systats.IsPortOpen(0000)
+	want := false
+	if status != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", status, want)
+	}
+}
+
+func TestCanConnect(t *testing.T) {
+	status, err := systats.CanConnectExternal("https://www.google.com")
+	if err != nil {
+		t.Errorf("CanConnect() returned error %s", err.Error())
+	}
+	want := true
+	if status != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", status, want)
+	}
+}
