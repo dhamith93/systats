@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhamith93/systats/exec"
 	"github.com/dhamith93/systats/internal/fileops"
 )
 
@@ -98,7 +99,7 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 
 func processLoggedInUsers(system *System, systats *SyStats) {
 	// NAME LINE TIME COMMENT
-	split := strings.Split(Execute("who"), "\n")
+	split := strings.Split(exec.Execute("who"), "\n")
 	system.LoggedInUsers = []User{}
 	for _, line := range split {
 		loggedInInfo := strings.Fields(line)

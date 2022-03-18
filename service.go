@@ -3,12 +3,14 @@ package systats
 import (
 	"regexp"
 	"strings"
+
+	"github.com/dhamith93/systats/exec"
 )
 
 func isServiceRunning(service string) bool {
-	output, err := ExecuteWithError("systemctl", "is-active", service)
+	output, err := exec.ExecuteWithError("systemctl", "is-active", service)
 	if err != nil {
-		output = Execute("service", service, "status")
+		output = exec.Execute("service", service, "status")
 		r, _ := regexp.Compile("(Active: active)")
 		return r.Match([]byte(output))
 	}

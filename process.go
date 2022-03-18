@@ -3,6 +3,8 @@ package systats
 import (
 	"strconv"
 	"strings"
+
+	"github.com/dhamith93/systats/exec"
 )
 
 // Process holds information on single process
@@ -15,7 +17,7 @@ type Process struct {
 }
 
 func getTopProcesses(count int, sort string) ([]Process, error) {
-	result := Execute("ps", "-eo", "pid,%cpu,%mem,user", "--no-headers", "--sort="+sort)
+	result := exec.Execute("ps", "-eo", "pid,%cpu,%mem,user", "--no-headers", "--sort="+sort)
 	resultArray := strings.Split(result, "\n")
 	out := []Process{}
 

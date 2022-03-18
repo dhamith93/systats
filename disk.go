@@ -3,6 +3,8 @@ package systats
 import (
 	"strconv"
 	"strings"
+
+	"github.com/dhamith93/systats/exec"
 )
 
 // Disk holds information on single disk
@@ -94,13 +96,13 @@ func getDisks() ([]Disk, error) {
 
 func getDiskInfo() []string {
 	// Filesystem     Type  1K-blocks      Used Available Use% Mounted on
-	result := Execute("df", "-T", "-B1", "--exclude-type=tmpfs", "--exclude-type=devtmpfs", "--exclude-type=udev")
+	result := exec.Execute("df", "-T", "-B1", "--exclude-type=tmpfs", "--exclude-type=devtmpfs", "--exclude-type=udev")
 	return strings.Split(result, "\n")[1:]
 }
 
 func getDiskInodeInfo() []string {
 	// Filesystem     Type   Inodes   IUsed   IFree IUse% Mounted on
-	result := Execute("df", "-T", "-B1", "-i", "--exclude-type=tmpfs", "--exclude-type=devtmpfs", "--exclude-type=udev")
+	result := exec.Execute("df", "-T", "-B1", "-i", "--exclude-type=tmpfs", "--exclude-type=devtmpfs", "--exclude-type=udev")
 	return strings.Split(result, "\n")[1:]
 }
 
