@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/dhamith93/systats/exec"
 )
 
 // Network holds interface information
@@ -24,13 +26,13 @@ type NetworkUsage struct {
 
 func getNetworks() ([]Network, error) {
 	output := []Network{}
-	ipCommand := GetExecPath("ip")
+	ipCommand := exec.GetExecPath("ip")
 	if ipCommand == "" {
 		return output, errors.New("cannot find `ip` command path")
 	}
 
 	execCommand := ipCommand + " -o addr show scope global | awk '{split($4, a, \"/\"); print $2\" : \"a[1]}'"
-	result := ExecuteWithPipe(execCommand)
+	result := exec.ExecuteWithPipe(execCommand)
 	resultSplit := strings.Split(result, "\n")
 
 	for _, iface := range resultSplit {
