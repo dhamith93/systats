@@ -2,7 +2,7 @@
 
 Go module to get linux system stats.
 
-[![Go](https://github.com/dhamith93/systats/actions/workflows/go.yml/badge.svg)](https://github.com/dhamith93/systats/.github/workflows/go.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/dhamith93/systats)](https://goreportcard.com/report/github.com/dhamith93/systats)
+[![Go](https://github.com/dhamith93/systats/actions/workflows/go.yml/badge.svg)](https://github.com/dhamith93/systats/actions/workflows/go.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/dhamith93/systats)](https://goreportcard.com/report/github.com/dhamith93/systats)
 
 Provides following information on systems:
 * System
