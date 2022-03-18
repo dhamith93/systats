@@ -42,7 +42,7 @@ Returns OS, Hostname, Kernel, Up time, last boot date, timezone, logged in users
 ```go
 func main() {
 	syStats := systats.New()
-	system, err := systats.GetSystem(syStats)
+	system, err := systats.GetSystem()
 }
 ```
 
@@ -53,7 +53,7 @@ CPU info and load avg info (overall, and per core)
 ```go
 func main() {
 	syStats := systats.New()
-	cpu, err := systats.GetCPU(syStats)
+	cpu, err := systats.GetCPU()
 }
 ```
 
@@ -62,7 +62,7 @@ func main() {
 ```go
 func main() {
 	syStats := systats.New()
-	memory, err := systats.GetMemory(syStats, systats.Megabyte)
+	memory, err := systats.GetMemory(systats.Megabyte)
 }
 ```
 
@@ -71,7 +71,7 @@ func main() {
 ```go
 func main() {
 	syStats := systats.New()
-	swap, err := systats.GetSwap(syStats, systats.Megabyte)
+	swap, err := systats.GetSwap(systats.Megabyte)
 }
 ```
 
@@ -79,7 +79,8 @@ func main() {
 
 ```go
 func main() {
-	disks, err := systats.GetDisks()
+	syStats := systats.New()
+	disks, err := syStats.GetDisks()
 }
 ```
 
@@ -90,7 +91,7 @@ Interface info and usage info
 ```go
 func main() {
 	syStats := systats.New()
-	networks, err := GetNetworks.GetDisks(syStats)
+	networks, err := syStats.GetNetworks()
 }
 ```
 
@@ -100,7 +101,8 @@ Returns if service is running or not
 
 ```go
 func main() {
-	running := systats.IsServiceRunning(service)
+	syStats := systats.New()
+	running := syStats.IsServiceRunning(service)
 	if !running {
 		fmt.Println(service + " not running")
 	}
@@ -113,7 +115,8 @@ Returns running processes sorted by CPU or memory usage
 
 ```go
 func main() {
-	procs, err := systats.GetTopProcesses(10, "cpu")
-	procs, err := systats.GetTopProcesses(10, "memory")
+	syStats := systats.New()
+	procs, err := syStats.GetTopProcesses(10, "cpu")
+	procs, err := syStats.GetTopProcesses(10, "memory")
 }
 ```
