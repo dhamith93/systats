@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhamith93/systats/internal/fileops"
 	"github.com/dhamith93/systats/internal/strops"
 	"github.com/dhamith93/systats/internal/unitconv"
 )
@@ -23,7 +24,7 @@ func getSwap(systats *SyStats, unit string) (Swap, error) {
 	output := Swap{}
 	output.Unit = unit
 
-	meminfoStr, err := readFile(systats.MeminfoPath)
+	meminfoStr, err := fileops.ReadFileWithError(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dhamith93/systats/exec"
+	"github.com/dhamith93/systats/internal/fileops"
 )
 
 // Process holds information on single process
@@ -38,7 +39,7 @@ func getTopProcesses(count int, sort string) ([]Process, error) {
 		if err != nil {
 			return out, err
 		}
-		execPath, err := readFile("/proc/" + processArray[0] + "/cmdline")
+		execPath, err := fileops.ReadFileWithError("/proc/" + processArray[0] + "/cmdline")
 		if err != nil {
 			continue
 		}

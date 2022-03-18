@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dhamith93/systats/exec"
+	"github.com/dhamith93/systats/internal/fileops"
 )
 
 // Network holds interface information
@@ -61,7 +62,7 @@ func getNetworkUsage(networkInterface string) NetworkUsage {
 }
 
 func getBytes(path string) uint64 {
-	result, err := readFile(path)
+	result, err := fileops.ReadFileWithError(path)
 	if err != nil {
 		return 0
 	}

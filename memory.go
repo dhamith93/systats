@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhamith93/systats/internal/fileops"
 	"github.com/dhamith93/systats/internal/strops"
 	"github.com/dhamith93/systats/internal/unitconv"
 )
@@ -24,7 +25,7 @@ func getMemory(systats *SyStats, unit string) (Memory, error) {
 	output := Memory{}
 	output.Unit = unit
 
-	meminfoStr, err := readFile(systats.MeminfoPath)
+	meminfoStr, err := fileops.ReadFileWithError(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}

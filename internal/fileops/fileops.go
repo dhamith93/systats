@@ -18,6 +18,15 @@ func ReadFile(path string) string {
 	return string(s)
 }
 
+// ReadFileWithError read file and return string and error
+func ReadFileWithError(path string) (string, error) {
+	if !IsFile(path) {
+		return "", errors.New(path + " file not found")
+	}
+
+	return ReadFile(path), nil
+}
+
 // WriteFile write to given file
 func WriteFile(path string, input string) {
 	s := []byte(input)

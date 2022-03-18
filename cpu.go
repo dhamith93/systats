@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhamith93/systats/internal/fileops"
 	"github.com/dhamith93/systats/internal/strops"
 )
 
@@ -22,20 +23,20 @@ type CPU struct {
 
 func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
 	output := CPU{}
-	statStr1, err := readFile(systats.StatFilePath)
+	statStr1, err := fileops.ReadFileWithError(systats.StatFilePath)
 	if err != nil {
 		return output, err
 	}
 	// to calculate the cpu usage the /proc/stat has to be read some time apart
 	time.Sleep(time.Duration(milliseconds) * time.Millisecond)
-	statStr2, err := readFile(systats.StatFilePath)
+	statStr2, err := fileops.ReadFileWithError(systats.StatFilePath)
 	if err != nil {
 		return output, err
 	}
 
 	processStatFileContents(&output, &statStr1, &statStr2)
 
-	cpuinfoStr, err := readFile(systats.CPUinfoFilePath)
+	cpuinfoStr, err := fileops.ReadFileWithError(systats.CPUinfoFilePath)
 	if err != nil {
 		return output, err
 	}
