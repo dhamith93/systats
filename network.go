@@ -88,3 +88,16 @@ func canConnect(url string) (bool, error) {
 	defer resp.Body.Close()
 	return status, err
 }
+
+func establishedTCPConnCount(process string) int {
+	count := 0
+	command := "lsof -ni | grep ESTABLISHED"
+	resArr := strings.Split(exec.ExecuteWithPipe(command), "\n")
+	for _, line := range resArr {
+		lineArr := strings.Fields(line)
+		if len(lineArr) > 0 && strings.TrimSpace(lineArr[0]) == process {
+			count += 1
+		}
+	}
+	return count
+}

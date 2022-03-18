@@ -77,3 +77,7 @@ func (systats *SyStats) IsPortOpen(port int) bool {
 func (systats *SyStats) CanConnectExternal(url string) (bool, error) {
 	return canConnect(url)
 }
+
+func (systats *SyStats) EstablishedTCPConnCount(procName string) int {
+	return establishedTCPConnCount(procName)
+}
