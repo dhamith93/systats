@@ -28,35 +28,35 @@ func New() SyStats {
 	}
 }
 
-func GetMemory(systats SyStats, unit string) (Memory, error) {
-	return getMemory(&systats, unit)
+func (systats *SyStats) GetMemory(unit string) (Memory, error) {
+	return getMemory(systats, unit)
 }
 
-func GetSwap(systats SyStats, unit string) (Swap, error) {
-	return getSwap(&systats, unit)
+func (systats *SyStats) GetSwap(unit string) (Swap, error) {
+	return getSwap(systats, unit)
 }
 
-func GetCPU(systats SyStats) (CPU, error) {
-	return getCPU(&systats, 300)
+func (systats *SyStats) GetCPU() (CPU, error) {
+	return getCPU(systats, 300)
 }
 
-func GetSystem(systats SyStats) (System, error) {
-	return getSystem(&systats)
+func (systats *SyStats) GetSystem() (System, error) {
+	return getSystem(systats)
 }
 
-func GetNetworks() ([]Network, error) {
+func (systats *SyStats) GetNetworks() ([]Network, error) {
 	return getNetworks()
 }
 
-func GetNetworkUsage(networkInterface string) NetworkUsage {
+func (systats *SyStats) GetNetworkUsage(networkInterface string) NetworkUsage {
 	return getNetworkUsage(networkInterface)
 }
 
-func IsServiceRunning(service string) bool {
+func (systats *SyStats) IsServiceRunning(service string) bool {
 	return isServiceRunning(service)
 }
 
-func GetTopProcesses(count int, sort string) ([]Process, error) {
+func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, error) {
 	if sort == "cpu" {
 		sort = "-pcpu"
 	}
@@ -66,14 +66,14 @@ func GetTopProcesses(count int, sort string) ([]Process, error) {
 	return getTopProcesses(count, sort)
 }
 
-func GetDisks() ([]Disk, error) {
+func (systats *SyStats) GetDisks() ([]Disk, error) {
 	return getDisks()
 }
 
-func IsPortOpen(port int) bool {
+func (systats *SyStats) IsPortOpen(port int) bool {
 	return isPortOpen(port)
 }
 
-func CanConnectExternal(url string) (bool, error) {
+func (systats *SyStats) CanConnectExternal(url string) (bool, error) {
 	return canConnect(url)
 }

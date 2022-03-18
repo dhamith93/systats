@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/dhamith93/systats"
+	"github.com/dhamith93/systats/exec"
 )
 
 func TestGetMemoryKB(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
-	got, err := systats.GetMemory(syStats, systats.Kilobyte)
+	got, err := syStats.GetMemory(systats.Kilobyte)
 	if err != nil {
 		t.Errorf("Get memory returned error")
 	}
@@ -42,7 +43,7 @@ func TestGetMemoryKB(t *testing.T) {
 
 func TestGetMemoryMB(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
-	got, err := systats.GetMemory(syStats, systats.Megabyte)
+	got, err := syStats.GetMemory(systats.Megabyte)
 	if err != nil {
 		t.Errorf("Get memory returned error")
 	}
@@ -75,7 +76,7 @@ func TestGetMemoryMB(t *testing.T) {
 
 func TestGetSwapKB(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
-	got, err := systats.GetSwap(syStats, systats.Kilobyte)
+	got, err := syStats.GetSwap(systats.Kilobyte)
 	if err != nil {
 		t.Errorf("Get swap returned error")
 	}
@@ -103,7 +104,7 @@ func TestGetSwapKB(t *testing.T) {
 
 func TestGetSwapMB(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
-	got, err := systats.GetSwap(syStats, systats.Megabyte)
+	got, err := syStats.GetSwap(systats.Megabyte)
 	if err != nil {
 		t.Errorf("Get swap returned error")
 	}
@@ -134,7 +135,7 @@ func TestGetCPU(t *testing.T) {
 		CPUinfoFilePath: "./test_files/cpuinfo.txt",
 		StatFilePath:    "/proc/stat",
 	}
-	cpu, err := systats.GetCPU(syStats)
+	cpu, err := syStats.GetCPU()
 	if err != nil {
 		t.Errorf("Get CPU returned error")
 	}
@@ -156,7 +157,7 @@ func TestGetSystem(t *testing.T) {
 		VersionPath: "./test_files/version.txt",
 		UptimePath:  "./test_files/uptime.txt",
 	}
-	system, err := systats.GetSystem(syStats)
+	system, err := syStats.GetSystem()
 	if err != nil {
 		t.Errorf("Get System returned error %s", err.Error())
 	}
@@ -183,20 +184,22 @@ func TestGetSystem(t *testing.T) {
 }
 
 func TestGetNetworks(t *testing.T) {
-	_, err := systats.GetNetworks()
+	syStats := systats.New()
+	_, err := syStats.GetNetworks()
 	if err != nil {
 		t.Errorf("Get Networks returned error %s", err.Error())
 	}
 }
 
 func TestGetNetworkUsage(t *testing.T) {
-	n, err := systats.GetNetworks()
+	syStats := systats.New()
+	n, err := syStats.GetNetworks()
 	if err != nil {
 		t.Errorf("Get Network Usage returned error %s", err.Error())
 	}
 
 	if len(n) > 0 {
-		out := systats.GetNetworkUsage(n[0].Interface)
+		out := syStats.GetNetworkUsage(n[0].Interface)
 		if out.RxBytes == 0 {
 			t.Errorf("Got invalid value for Rx. got: %d, want: > %d", out.RxBytes, 0)
 		}
@@ -209,28 +212,32 @@ func TestGetNetworkUsage(t *testing.T) {
 
 func TestIsServiceRunning(t *testing.T) {
 	// gets first running service
-	output := systats.ExecuteWithPipe("service --status-all | awk '$2 == \"+\" {print $4}' | head -n 1")
+
+	output := exec.ExecuteWithPipe("service --status-all | awk '$2 == \"+\" {print $4}' | head -n 1")
 	output = strings.TrimSpace(output)
-	running := systats.IsServiceRunning(output)
+	syStats := systats.New()
+	running := syStats.IsServiceRunning(output)
 	if !running {
 		t.Errorf("IsServiceRunning(%s) returned %v, expected %v", output, running, true)
 	}
 }
 
 func TestGetTopProcesses(t *testing.T) {
-	_, err := systats.GetTopProcesses(10, "cpu")
+	syStats := systats.New()
+	_, err := syStats.GetTopProcesses(10, "cpu")
 	if err != nil {
 		t.Errorf("GetTopProcesses(CPU) returned error %s", err.Error())
 	}
 
-	_, err = systats.GetTopProcesses(10, "memory")
+	_, err = syStats.GetTopProcesses(10, "memory")
 	if err != nil {
 		t.Errorf("GetTopProcesses(MEMORY) returned error %s", err.Error())
 	}
 }
 
 func TestGetDisks(t *testing.T) {
-	_, err := systats.GetDisks()
+	syStats := systats.New()
+	_, err := syStats.GetDisks()
 	if err != nil {
 		t.Errorf("GetDisks() returned error %s", err.Error())
 	}
@@ -279,7 +286,8 @@ func TestDiskConvert(t *testing.T) {
 }
 
 func TestIsPortOpen(t *testing.T) {
-	status := systats.IsPortOpen(0000)
+	syStats := systats.New()
+	status := syStats.IsPortOpen(0000)
 	want := false
 	if status != want {
 		t.Errorf("Got invalid value. got: %v, want: %v", status, want)
@@ -287,7 +295,8 @@ func TestIsPortOpen(t *testing.T) {
 }
 
 func TestCanConnect(t *testing.T) {
-	status, err := systats.CanConnectExternal("https://www.google.com")
+	syStats := systats.New()
+	status, err := syStats.CanConnectExternal("https://www.google.com")
 	if err != nil {
 		t.Errorf("CanConnect() returned error %s", err.Error())
 	}
