@@ -22,7 +22,11 @@ func getTopProcesses(count int, sort string) ([]Process, error) {
 	resultArray := strings.Split(result, "\n")
 	out := []Process{}
 
-	for _, process := range resultArray {
+	for i, process := range resultArray {
+		if i+1 > count {
+			break
+		}
+
 		processArray := strings.Fields(process)
 		if len(processArray) == 0 {
 			continue

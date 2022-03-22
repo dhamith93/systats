@@ -224,14 +224,22 @@ func TestIsServiceRunning(t *testing.T) {
 
 func TestGetTopProcesses(t *testing.T) {
 	syStats := systats.New()
-	_, err := syStats.GetTopProcesses(10, "cpu")
+	cpu, err := syStats.GetTopProcesses(10, "cpu")
 	if err != nil {
 		t.Errorf("GetTopProcesses(CPU) returned error %s", err.Error())
 	}
 
-	_, err = syStats.GetTopProcesses(10, "memory")
+	mem, err := syStats.GetTopProcesses(10, "memory")
 	if err != nil {
 		t.Errorf("GetTopProcesses(MEMORY) returned error %s", err.Error())
+	}
+
+	if len(cpu) != 10 {
+		t.Errorf("Got invalid value for process list length (cpu) got: %d, want: %d", len(cpu), 10)
+	}
+
+	if len(mem) != 10 {
+		t.Errorf("Got invalid value for process list length (mem) got: %d, want: %d", len(mem), 10)
 	}
 }
 
