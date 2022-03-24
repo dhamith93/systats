@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dhamith93/systats/exec"
 	"github.com/dhamith93/systats/internal/fileops"
@@ -17,6 +18,7 @@ type Network struct {
 	Interface string
 	Ip        string
 	Usage     NetworkUsage
+	Time      int64
 }
 
 // NetworkUsage holds Tx/Rx usage information
@@ -48,6 +50,7 @@ func getNetworks() ([]Network, error) {
 				RxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
 				TxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
 			},
+			Time: time.Now().Unix(),
 		})
 	}
 

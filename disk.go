@@ -3,6 +3,7 @@ package systats
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dhamith93/systats/exec"
 )
@@ -14,6 +15,7 @@ type Disk struct {
 	MountedOn  string
 	Usage      DiskUsage
 	Inodes     InodeUsage
+	Time       int64
 }
 
 // DiskUsage holds information on single disk usage information
@@ -88,6 +90,7 @@ func getDisks() ([]Disk, error) {
 		}
 		newDisk.Inodes.Available = uint64(val)
 		newDisk.Inodes.Usage = diskInodeArr[5]
+		newDisk.Time = time.Now().Unix()
 		output = append(output, newDisk)
 	}
 
