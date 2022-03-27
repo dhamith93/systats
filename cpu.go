@@ -96,13 +96,17 @@ func processStatFileContents(output *CPU, statStr1 *string, statStr2 *string) {
 		// user + system, and user+system+idle times
 		a1 := statArr1[i][0] + statArr1[i][1]
 		a2 := statArr1[i][0] + statArr1[i][1] + statArr1[i][2]
-		usage := 100 * (statArr2[i][0] + statArr2[i][1] - a1) / (statArr2[i][0] + statArr2[i][1] + statArr2[i][2] - a2)
-
-		if i == 0 {
-			output.LoadAvg = int(usage)
-			continue
+		b := (statArr2[i][0] + statArr2[i][1] + statArr2[i][2] - a2)
+		if b > 0 {
+			usage := 100 * (statArr2[i][0] + statArr2[i][1] - a1) / b
+			if i == 0 {
+				output.LoadAvg = int(usage)
+				continue
+			}
+			output.CoreAvg = append(output.CoreAvg, int(usage))
+		} else {
+			output.CoreAvg = append(output.CoreAvg, 0)
 		}
-		output.CoreAvg = append(output.CoreAvg, int(usage))
 	}
 }
 
