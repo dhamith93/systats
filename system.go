@@ -57,15 +57,17 @@ func getSystem(systats *SyStats) (System, error) {
 }
 
 func getOperatingSystem(system *System, systats *SyStats) error {
-	path, err := fileops.FindFileWithNameLike(systats.EtcPath, "os-release")
+	path := systats.EtcPath + "/os-release"
+	content, err := fileops.ReadFileWithError(path)
 	if err != nil {
 		path, err = fileops.FindFileWithNameLike(systats.EtcPath, "-release")
 		if err != nil {
 			return err
 		}
+		content = fileops.ReadFile(path)
 	}
 
-	split := strings.Split(fileops.ReadFile(path), "\n")
+	split := strings.Split(content, "\n")
 
 	for _, line := range split {
 		r, _ := regexp.Compile("^(PRETTY_NAME=\")(.+)(\")")
@@ -92,7 +94,11 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 	localTimePath, _ := os.Readlink(systats.EtcPath + "/localtime")
 	split = strings.Split(localTimePath, "/")
 	if len(split) >= 3 {
-		system.TimeZone = split[len(split)-1] + "/" + split[len(split)-2]
+		if split[len(split)-2] == "zoneinfo" {
+			system.TimeZone = split[len(split)-1]
+		} else {
+			system.TimeZone = split[len(split)-2] + "/" + split[len(split)-1]
+		}
 	}
 	return nil
 }
