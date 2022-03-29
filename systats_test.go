@@ -177,8 +177,8 @@ func TestGetSystem(t *testing.T) {
 		return
 	}
 
-	if system.TimeZone != "Colombo/Asia" {
-		t.Errorf("Got invalid value. got: %s, want: %s", system.TimeZone, "Colombo/Asia")
+	if system.TimeZone != "Asia/Colombo" {
+		t.Errorf("Got invalid value. got: %s, want: %s", system.TimeZone, "Asia/Colombo")
 		return
 	}
 }
