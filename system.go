@@ -87,7 +87,7 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 		if err != nil {
 			return err
 		}
-		uptime := time.Duration(int(uptimeSecsFloat) * int(time.Second))
+		uptime := time.Duration(int64(uptimeSecsFloat) * int64(time.Second))
 		system.UpTime = strings.TrimSpace(uptime.String())
 		system.LastBootDate = time.Now().Add(-uptime).Round(time.Second)
 	}

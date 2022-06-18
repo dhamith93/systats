@@ -56,35 +56,35 @@ func getDisks() ([]Disk, error) {
 		newDisk.Usage = DiskUsage{}
 		newDisk.Inodes = InodeUsage{}
 
-		val, err := strconv.Atoi(diskArr[2])
+		val, err := strconv.ParseUint(diskArr[2], 10, 64)
 		if err != nil {
 			return output, err
 		}
-		newDisk.Usage.Size = uint64(val)
-		val, err = strconv.Atoi(diskArr[3])
+		newDisk.Usage.Size = val
+		val, err = strconv.ParseUint(diskArr[3], 10, 64)
 		if err != nil {
 			return output, err
 		}
-		newDisk.Usage.Used = uint64(val)
-		val, err = strconv.Atoi(diskArr[4])
+		newDisk.Usage.Used = val
+		val, err = strconv.ParseUint(diskArr[4], 10, 64)
 		if err != nil {
 			return output, err
 		}
-		newDisk.Usage.Available = uint64(val)
+		newDisk.Usage.Available = val
 		newDisk.Usage.Usage = diskArr[5]
 		newDisk.Usage.Unit = Byte
 
-		val, err = strconv.Atoi(diskInodeArr[3])
+		val, err = strconv.ParseUint(diskInodeArr[2], 10, 64)
 		if err != nil {
 			return output, err
 		}
-		newDisk.Inodes.Inodes = uint64(val)
-		val, err = strconv.Atoi(diskInodeArr[3])
+		newDisk.Inodes.Inodes = val
+		val, err = strconv.ParseUint(diskInodeArr[3], 10, 64)
 		if err != nil {
 			return output, err
 		}
-		newDisk.Inodes.Used = uint64(val)
-		val, err = strconv.Atoi(diskInodeArr[4])
+		newDisk.Inodes.Used = val
+		val, err = strconv.ParseUint(diskInodeArr[4], 10, 64)
 		if err != nil {
 			return output, err
 		}
