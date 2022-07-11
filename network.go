@@ -23,8 +23,10 @@ type Network struct {
 
 // NetworkUsage holds Tx/Rx usage information
 type NetworkUsage struct {
-	RxBytes uint64
-	TxBytes uint64
+	RxBytes   uint64
+	TxBytes   uint64
+	RxPackets uint64
+	TxPackets uint64
 }
 
 func getNetworks() ([]Network, error) {
@@ -47,8 +49,10 @@ func getNetworks() ([]Network, error) {
 			Interface: ifaceArray[0],
 			Ip:        ifaceArray[2],
 			Usage: NetworkUsage{
-				RxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
-				TxBytes: getBytes("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
+				RxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
+				TxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
+				RxPackets: readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_packets"),
+				TxPackets: readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_packets"),
 			},
 			Time: time.Now().Unix(),
 		})
@@ -59,12 +63,14 @@ func getNetworks() ([]Network, error) {
 
 func getNetworkUsage(networkInterface string) NetworkUsage {
 	return NetworkUsage{
-		RxBytes: getBytes("/sys/class/net/" + networkInterface + "/statistics/rx_bytes"),
-		TxBytes: getBytes("/sys/class/net/" + networkInterface + "/statistics/tx_bytes"),
+		RxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_bytes"),
+		TxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/tx_bytes"),
+		RxPackets: readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_packets"),
+		TxPackets: readAsUint64("/sys/class/net/" + networkInterface + "/statistics/tx_packets"),
 	}
 }
 
-func getBytes(path string) uint64 {
+func readAsUint64(path string) uint64 {
 	result, err := fileops.ReadFileWithError(path)
 	if err != nil {
 		return 0
