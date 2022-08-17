@@ -23,6 +23,7 @@ type Network struct {
 
 // NetworkUsage holds Tx/Rx usage information
 type NetworkUsage struct {
+	State     string
 	RxBytes   uint64
 	TxBytes   uint64
 	RxPackets uint64
@@ -49,6 +50,7 @@ func getNetworks() ([]Network, error) {
 			Interface: ifaceArray[0],
 			Ip:        ifaceArray[2],
 			Usage: NetworkUsage{
+				State:     readAsString("/sys/class/net/" + ifaceArray[0] + "/operstate"),
 				RxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
 				TxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
 				RxPackets: readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_packets"),
@@ -63,6 +65,7 @@ func getNetworks() ([]Network, error) {
 
 func getNetworkUsage(networkInterface string) NetworkUsage {
 	return NetworkUsage{
+		State:     readAsString("/sys/class/net/" + networkInterface + "/operstate"),
 		RxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_bytes"),
 		TxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/tx_bytes"),
 		RxPackets: readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_packets"),
@@ -77,6 +80,14 @@ func readAsUint64(path string) uint64 {
 	}
 	out, _ := strconv.ParseUint(strings.TrimSpace(result), 10, 64)
 	return out
+}
+
+func readAsString(path string) string {
+	result, err := fileops.ReadFileWithError(path)
+	if err != nil {
+		return "error"
+	}
+	return strings.TrimSpace(result)
 }
 
 func isPortOpen(port int) bool {
