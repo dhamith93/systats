@@ -15,6 +15,7 @@ type SyStats struct {
 	VersionPath     string
 	EtcPath         string
 	UptimePath      string
+	MountsPath      string
 }
 
 func New() SyStats {
@@ -25,6 +26,7 @@ func New() SyStats {
 		VersionPath:     "/proc/version",
 		EtcPath:         "/etc/",
 		UptimePath:      "/proc/uptime",
+		MountsPath:      "/proc/mounts",
 	}
 }
 
@@ -57,17 +59,11 @@ func (systats *SyStats) IsServiceRunning(service string) bool {
 }
 
 func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, error) {
-	if sort == "cpu" {
-		sort = "-pcpu"
-	}
-	if sort == "memory" {
-		sort = "-pmem"
-	}
-	return getTopProcesses(count, sort)
+	return getTopProcesses(systats, count, sort)
 }
 
 func (systats *SyStats) GetDisks() ([]Disk, error) {
-	return getDisks()
+	return getDisks(systats)
 }
 
 func (systats *SyStats) IsPortOpen(port int) bool {

@@ -274,6 +274,26 @@ func TestGetDisks(t *testing.T) {
 	}
 }
 
+func TestGetDisksExcludesPseudoFilesystems(t *testing.T) {
+	syStats := systats.SyStats{MountsPath: "./test_files/mounts.txt"}
+	disks, err := syStats.GetDisks()
+	if err != nil {
+		t.Errorf("GetDisks() returned error %s", err.Error())
+	}
+
+	for _, d := range disks {
+		if d.Type == "tmpfs" || d.Type == "devtmpfs" || d.Type == "udev" {
+			t.Errorf("got excluded fs type %q in GetDisks() result for %s", d.Type, d.MountedOn)
+		}
+		if d.MountedOn == "" {
+			t.Errorf("got disk entry with empty MountedOn")
+		}
+		if d.Usage.Unit != systats.Byte {
+			t.Errorf("got Usage.Unit %q, want %q", d.Usage.Unit, systats.Byte)
+		}
+	}
+}
+
 func TestDiskConvert(t *testing.T) {
 	disk := systats.Disk{
 		FileSystem: "TEST",
