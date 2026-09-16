@@ -1,0 +1,7 @@
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+udev /dev devtmpfs rw,nosuid,relatime,size=8138664k,nr_inodes=2034666,mode=755 0 0
+tmpfs /run tmpfs rw,nosuid,nodev,noexec,relatime,size=1631348k,mode=755 0 0
+/dev/sda2 / ext4 rw,relatime,errors=remount-ro 0 0
+/dev/sda1 /boot/efi vfat rw,relatime,fmask=0077,dmask=0077 0 0
+/dev/sdb1 /mnt/My\040Backup\040Drive ext4 rw,relatime 0 0
