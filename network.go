@@ -1,7 +1,6 @@
 package systats
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,10 +14,12 @@ import (
 
 // Network holds interface information
 type Network struct {
-	Interface string
-	Ip        string
-	Usage     NetworkUsage
-	Time      int64
+	Interface  string
+	Ip         string
+	Ipv6       string
+	MacAddress string
+	Usage      NetworkUsage
+	Time       int64
 }
 
 // NetworkUsage holds Tx/Rx usage information
@@ -32,35 +33,59 @@ type NetworkUsage struct {
 
 func getNetworks() ([]Network, error) {
 	output := []Network{}
-	ipCommand := exec.GetExecPath("ip")
-	if ipCommand == "" {
-		return output, errors.New("cannot find `ip` command path")
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return output, err
 	}
 
-	execCommand := ipCommand + " -o addr show scope global | awk '{split($4, a, \"/\"); print $2\" : \"a[1]}'"
-	result := exec.ExecuteWithPipe(execCommand)
-	resultSplit := strings.Split(result, "\n")
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return output, err
+		}
 
-	for _, iface := range resultSplit {
-		ifaceArray := strings.Fields(iface)
-		if len(ifaceArray) != 3 {
+		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
+
 		output = append(output, Network{
-			Interface: ifaceArray[0],
-			Ip:        ifaceArray[2],
+			Interface:  iface.Name,
+			Ip:         pickIP(addrs, true),
+			Ipv6:       pickIP(addrs, false),
+			MacAddress: iface.HardwareAddr.String(),
 			Usage: NetworkUsage{
-				State:     readAsString("/sys/class/net/" + ifaceArray[0] + "/operstate"),
-				RxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_bytes"),
-				TxBytes:   readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_bytes"),
-				RxPackets: readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/rx_packets"),
-				TxPackets: readAsUint64("/sys/class/net/" + ifaceArray[0] + "/statistics/tx_packets"),
+				State:     readAsString("/sys/class/net/" + iface.Name + "/operstate"),
+				RxBytes:   readAsUint64("/sys/class/net/" + iface.Name + "/statistics/rx_bytes"),
+				TxBytes:   readAsUint64("/sys/class/net/" + iface.Name + "/statistics/tx_bytes"),
+				RxPackets: readAsUint64("/sys/class/net/" + iface.Name + "/statistics/rx_packets"),
+				TxPackets: readAsUint64("/sys/class/net/" + iface.Name + "/statistics/tx_packets"),
 			},
 			Time: time.Now().Unix(),
 		})
 	}
 
 	return output, nil
+}
+
+func pickIP(addrs []net.Addr, wantV4 bool) string {
+	fallback := ""
+	for _, a := range addrs {
+		ipNet, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip := ipNet.IP
+		if (ip.To4() != nil) != wantV4 {
+			continue
+		}
+		if !ip.IsLinkLocalUnicast() {
+			return ip.String()
+		}
+		if fallback == "" {
+			fallback = ip.String()
+		}
+	}
+	return fallback
 }
 
 func getNetworkUsage(networkInterface string) NetworkUsage {
