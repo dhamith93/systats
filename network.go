@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/dhamith93/systats/exec"
 	"github.com/dhamith93/systats/internal/fileops"
 )
 
@@ -135,13 +135,89 @@ func canConnect(url string) (bool, error) {
 }
 
 func establishedTCPConnCount(process string) int {
+	pids := findPidsByName(process)
+	if len(pids) == 0 {
+		return 0
+	}
+
+	establishedInodes := establishedTCPInodes()
+	if len(establishedInodes) == 0 {
+		return 0
+	}
+
 	count := 0
-	command := "lsof -ni | grep ESTABLISHED"
-	resArr := strings.Split(exec.ExecuteWithPipe(command), "\n")
-	for _, line := range resArr {
-		lineArr := strings.Fields(line)
-		if len(lineArr) > 0 && strings.TrimSpace(lineArr[0]) == process {
-			count += 1
+	for _, pid := range pids {
+		count += countMatchingSocketFds(pid, establishedInodes)
+	}
+	return count
+}
+
+func findPidsByName(name string) []int {
+	pids, err := listPids()
+	if err != nil {
+		return nil
+	}
+
+	matches := []int{}
+	for _, pid := range pids {
+		comm, err := fileops.ReadFileWithError("/proc/" + strconv.Itoa(pid) + "/comm")
+		if err != nil {
+			continue // process exited
+		}
+		if strings.TrimSpace(comm) == name {
+			matches = append(matches, pid)
+		}
+	}
+	return matches
+}
+
+func establishedTCPInodes() map[string]bool {
+	inodes := map[string]bool{}
+	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		content, err := fileops.ReadFileWithError(path)
+		if err != nil {
+			continue
+		}
+
+		lines := strings.Split(content, "\n")
+		if len(lines) > 0 {
+			lines = lines[1:] // skip header row
+		}
+		for _, line := range lines {
+			// columns: sl local_address rem_address st tx_queue:rx_queue
+			// tr:tm->when retrnsmt uid timeout inode ...
+			fields := strings.Fields(line)
+			if len(fields) < 10 {
+				continue
+			}
+			if !strings.EqualFold(fields[3], "01") {
+				continue // not ESTABLISHED
+			}
+			inodes[fields[9]] = true
+		}
+	}
+	return inodes
+}
+
+func countMatchingSocketFds(pid int, establishedInodes map[string]bool) int {
+	fdDir := "/proc/" + strconv.Itoa(pid) + "/fd"
+	entries, err := os.ReadDir(fdDir)
+	if err != nil {
+		return 0 // process exited, or fds unreadable (permissions)
+	}
+
+	count := 0
+	for _, e := range entries {
+		target, err := os.Readlink(fdDir + "/" + e.Name())
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(target, "socket:[") || !strings.HasSuffix(target, "]") {
+			continue
+		}
+		inode := target[len("socket:[") : len(target)-1]
+		if establishedInodes[inode] {
+			count++
 		}
 	}
 	return count
