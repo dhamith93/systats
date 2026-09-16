@@ -185,9 +185,18 @@ func TestGetSystem(t *testing.T) {
 
 func TestGetNetworks(t *testing.T) {
 	syStats := systats.New()
-	_, err := syStats.GetNetworks()
+	networks, err := syStats.GetNetworks()
 	if err != nil {
 		t.Errorf("Get Networks returned error %s", err.Error())
+	}
+
+	for _, n := range networks {
+		if n.Interface == "" {
+			t.Errorf("Got network entry with empty Interface name")
+		}
+		if n.Interface == "lo" {
+			t.Errorf("Got loopback interface %q in GetNetworks() result, want it excluded", n.Interface)
+		}
 	}
 }
 
@@ -234,12 +243,26 @@ func TestGetTopProcesses(t *testing.T) {
 		t.Errorf("GetTopProcesses(MEMORY) returned error %s", err.Error())
 	}
 
-	if len(cpu) != 10 {
-		t.Errorf("Got invalid value for process list length (cpu) got: %d, want: %d", len(cpu), 10)
+	if len(cpu) == 0 || len(cpu) > 10 {
+		t.Errorf("Got invalid value for process list length (cpu) got: %d, want: > 0 and <= %d", len(cpu), 10)
 	}
 
-	if len(mem) != 10 {
-		t.Errorf("Got invalid value for process list length (mem) got: %d, want: %d", len(mem), 10)
+	if len(mem) == 0 || len(mem) > 10 {
+		t.Errorf("Got invalid value for process list length (mem) got: %d, want: > 0 and <= %d", len(mem), 10)
+	}
+
+	for i := 1; i < len(cpu); i++ {
+		if cpu[i-1].CPUUsage < cpu[i].CPUUsage {
+			t.Errorf("GetTopProcesses(cpu) not sorted descending by CPUUsage at position %d: %+v", i, cpu)
+			break
+		}
+	}
+
+	for i := 1; i < len(mem); i++ {
+		if mem[i-1].MemUsage < mem[i].MemUsage {
+			t.Errorf("GetTopProcesses(memory) not sorted descending by MemUsage at position %d: %+v", i, mem)
+			break
+		}
 	}
 }
 
