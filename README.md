@@ -120,3 +120,16 @@ func main() {
 	procs, err := syStats.GetTopProcesses(10, "memory")
 }
 ```
+
+`SyStats.ProcessCPUMode` controls how `CPUUsage` is calculated:
+
+* `systats.CPUUsageInstant` (default): usage over a live 300ms sampling window. Accurate for current load, adds 300ms+ latency per call.
+* `systats.CPUUsageAverage`: lifetime average (total CPU time / time since process start), same as `ps`'s `%cpu`. Single `/proc` read, no sampling delay.
+
+```go
+func main() {
+	syStats := systats.New()
+	syStats.ProcessCPUMode = systats.CPUUsageAverage
+	procs, err := syStats.GetTopProcesses(10, "cpu")
+}
+```
