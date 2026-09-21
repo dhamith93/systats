@@ -27,11 +27,19 @@ const (
 	cpuSampleWindow  = 300 * time.Millisecond
 )
 
-type procTimes struct {
-	utime uint64
-	stime uint64
+// procStat holds the CPU-accounting fields read from /proc/<pid>/stat:
+// utime/stime (cumulative CPU ticks) and starttime (ticks since boot when
+// the process started, used only in CPUUsageAverage mode).
+type procStat struct {
+	utime     uint64
+	stime     uint64
+	starttime uint64
 }
 
+// procCandidate carries just enough to rank a process (CPU/mem usage) plus
+// its raw uid. cmdline and username resolution are deferred until after
+// sorting, since those are only ever needed for the processes that
+// actually make the final top-count cut.
 type procCandidate struct {
 	pid      int
 	uid      string
@@ -50,41 +58,14 @@ func getTopProcesses(systats *SyStats, count int, sortBy string) ([]Process, err
 		return nil, err
 	}
 
-	start := time.Now()
-	sample1 := sampleProcTimes(pids)
-	time.Sleep(cpuSampleWindow)
-	sample2 := sampleProcTimes(pids)
-	elapsedSeconds := time.Since(start).Seconds()
-
-	candidates := []procCandidate{}
-	for _, pid := range pids {
-		t2, ok := sample2[pid]
-		if !ok {
-			continue // process exited during sampling
-		}
-		t1, ok := sample1[pid]
-		if !ok {
-			continue
-		}
-
-		uid, vmRSSKB, err := readProcMemAndUID(pid)
-		if err != nil {
-			continue // process exited
-		}
-
-		deltaTicks := float64((t2.utime + t2.stime) - (t1.utime + t1.stime))
-		cpuUsage := 0.0
-		if elapsedSeconds > 0 {
-			cpuUsage = 100 * (deltaTicks / clockTicksPerSec) / elapsedSeconds
-		}
-		memUsage := 100 * float64(vmRSSKB) / float64(totalMemKB)
-
-		candidates = append(candidates, procCandidate{
-			pid:      pid,
-			uid:      uid,
-			cpuUsage: cpuUsage,
-			memUsage: memUsage,
-		})
+	var candidates []procCandidate
+	if systats.ProcessCPUMode == CPUUsageAverage {
+		candidates, err = collectCandidatesAverage(systats.UptimePath, pids, totalMemKB)
+	} else {
+		candidates, err = collectCandidatesInstant(pids, totalMemKB)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	candidates = sortAndLimit(candidates, sortBy, count)
@@ -111,6 +92,106 @@ func getTopProcesses(systats *SyStats, count int, sortBy string) ([]Process, err
 	return out, nil
 }
 
+// collectCandidatesInstant computes CPU usage as an instantaneous value:
+// sample every pid, sleep cpuSampleWindow, sample again, and use the
+// delta over actual elapsed wall time. Matches `top`'s default behavior;
+// costs at least cpuSampleWindow in latency.
+func collectCandidatesInstant(pids []int, totalMemKB uint64) ([]procCandidate, error) {
+	start := time.Now()
+	sample1 := sampleProcStats(pids)
+	time.Sleep(cpuSampleWindow)
+	sample2 := sampleProcStats(pids)
+	elapsedSeconds := time.Since(start).Seconds()
+
+	candidates := []procCandidate{}
+	for _, pid := range pids {
+		s2, ok := sample2[pid]
+		if !ok {
+			continue // process exited during sampling
+		}
+		s1, ok := sample1[pid]
+		if !ok {
+			continue
+		}
+
+		uid, vmRSSKB, err := readProcMemAndUID(pid)
+		if err != nil {
+			continue // process exited
+		}
+
+		cpuUsage := instantCPUPercent(s1.utime+s1.stime, s2.utime+s2.stime, elapsedSeconds)
+		memUsage := 100 * float64(vmRSSKB) / float64(totalMemKB)
+
+		candidates = append(candidates, procCandidate{
+			pid:      pid,
+			uid:      uid,
+			cpuUsage: cpuUsage,
+			memUsage: memUsage,
+		})
+	}
+	return candidates, nil
+}
+
+// collectCandidatesAverage computes CPU usage as a lifetime average since
+// each process started (total CPU time / time since start), matching
+// `ps`'s default %cpu. Single pass, no sampling wait.
+func collectCandidatesAverage(uptimePath string, pids []int, totalMemKB uint64) ([]procCandidate, error) {
+	uptimeSeconds, err := systemUptimeSeconds(uptimePath)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := sampleProcStats(pids)
+
+	candidates := []procCandidate{}
+	for _, pid := range pids {
+		s, ok := stats[pid]
+		if !ok {
+			continue // process exited
+		}
+
+		uid, vmRSSKB, err := readProcMemAndUID(pid)
+		if err != nil {
+			continue // process exited
+		}
+
+		cpuUsage := averageCPUPercent(s.utime+s.stime, s.starttime, uptimeSeconds)
+		memUsage := 100 * float64(vmRSSKB) / float64(totalMemKB)
+
+		candidates = append(candidates, procCandidate{
+			pid:      pid,
+			uid:      uid,
+			cpuUsage: cpuUsage,
+			memUsage: memUsage,
+		})
+	}
+	return candidates, nil
+}
+
+// instantCPUPercent computes CPU usage from two /proc/<pid>/stat samples
+// (each utime+stime) taken elapsedSeconds apart.
+func instantCPUPercent(cpuTicks1, cpuTicks2 uint64, elapsedSeconds float64) float64 {
+	if elapsedSeconds <= 0 {
+		return 0
+	}
+	deltaTicks := float64(cpuTicks2 - cpuTicks1)
+	return 100 * (deltaTicks / clockTicksPerSec) / elapsedSeconds
+}
+
+// averageCPUPercent computes CPU usage as a lifetime average: total CPU
+// time (cpuTicks = utime+stime) divided by time since the process
+// started (uptimeSeconds - starttime, both relative to boot).
+func averageCPUPercent(cpuTicks, starttime uint64, uptimeSeconds float64) float64 {
+	processAgeSeconds := uptimeSeconds - float64(starttime)/clockTicksPerSec
+	if processAgeSeconds <= 0 {
+		return 0
+	}
+	return 100 * (float64(cpuTicks) / clockTicksPerSec) / processAgeSeconds
+}
+
+// sortAndLimit sorts candidates descending by CPU or memory usage and
+// truncates to count. Kept separate from getTopProcesses so it can be
+// unit-tested with synthetic data, without needing /proc.
 func sortAndLimit(candidates []procCandidate, sortBy string, count int) []procCandidate {
 	if sortBy == "memory" {
 		sort.Slice(candidates, func(i, j int) bool { return candidates[i].memUsage > candidates[j].memUsage })
@@ -141,32 +222,45 @@ func listPids() ([]int, error) {
 	return pids, nil
 }
 
-func sampleProcTimes(pids []int) map[int]procTimes {
-	out := make(map[int]procTimes, len(pids))
+// sampleProcStats reads utime/stime/starttime for each pid. Entries for
+// processes that can no longer be read (exited, permission denied) are
+// simply omitted rather than failing the whole batch.
+func sampleProcStats(pids []int) map[int]procStat {
+	out := make(map[int]procStat, len(pids))
 	for _, pid := range pids {
-		content, err := fileops.ReadFileWithError("/proc/" + strconv.Itoa(pid) + "/stat")
+		s, err := readProcStat(pid)
 		if err != nil {
 			continue
 		}
-
-		// comm (field 2) is parenthesized and may itself contain spaces
-		// or parens, so locate the last ')' and parse everything after
-		// it positionally rather than splitting the whole line on spaces.
-		idx := strings.LastIndex(content, ")")
-		if idx == -1 || idx+2 > len(content) {
-			continue
-		}
-		fields := strings.Fields(content[idx+2:])
-		if len(fields) < 13 {
-			continue
-		}
-
-		out[pid] = procTimes{
-			utime: strops.ToUint64(fields[11]), // field 14: utime
-			stime: strops.ToUint64(fields[12]), // field 15: stime
-		}
+		out[pid] = s
 	}
 	return out
+}
+
+// readProcStat parses /proc/<pid>/stat. comm (field 2) is parenthesized
+// and may itself contain spaces or parens, so this locates the last ')'
+// and parses everything after it positionally rather than splitting the
+// whole line on spaces.
+func readProcStat(pid int) (procStat, error) {
+	content, err := fileops.ReadFileWithError("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return procStat{}, err
+	}
+
+	idx := strings.LastIndex(content, ")")
+	if idx == -1 || idx+2 > len(content) {
+		return procStat{}, errors.New("unexpected /proc/<pid>/stat format")
+	}
+	fields := strings.Fields(content[idx+2:])
+	if len(fields) < 20 {
+		return procStat{}, errors.New("unexpected /proc/<pid>/stat format")
+	}
+
+	return procStat{
+		utime:     strops.ToUint64(fields[11]), // field 14: utime
+		stime:     strops.ToUint64(fields[12]), // field 15: stime
+		starttime: strops.ToUint64(fields[19]), // field 22: starttime
+	}, nil
 }
 
 func readProcMemAndUID(pid int) (uid string, vmRSSKB uint64, err error) {
@@ -210,4 +304,16 @@ func totalMemoryKB(meminfoPath string) (uint64, error) {
 		}
 	}
 	return 0, errors.New("MemTotal not found in " + meminfoPath)
+}
+
+func systemUptimeSeconds(uptimePath string) (float64, error) {
+	content, err := fileops.ReadFileWithError(uptimePath)
+	if err != nil {
+		return 0, err
+	}
+	fields := strings.Fields(content)
+	if len(fields) < 1 {
+		return 0, errors.New("unexpected " + uptimePath + " format")
+	}
+	return strops.ToFloat64(fields[0]), nil
 }

@@ -231,6 +231,13 @@ func TestIsServiceRunning(t *testing.T) {
 	}
 }
 
+func TestNewDefaultsToInstantCPUMode(t *testing.T) {
+	syStats := systats.New()
+	if syStats.ProcessCPUMode != systats.CPUUsageInstant {
+		t.Errorf("New().ProcessCPUMode = %q, want %q (existing callers must keep today's behavior)", syStats.ProcessCPUMode, systats.CPUUsageInstant)
+	}
+}
+
 func TestGetTopProcesses(t *testing.T) {
 	syStats := systats.New()
 	cpu, err := syStats.GetTopProcesses(10, "cpu")

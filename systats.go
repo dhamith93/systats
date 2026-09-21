@@ -5,6 +5,18 @@ const (
 	Kilobyte string = "KB"
 	Megabyte string = "MB"
 	Gigabyte string = "GB"
+
+	// CPUUsageInstant (default) computes each process's CPU usage over a
+	// short live sampling window (like `top`) - correct for monitoring
+	// "what's using CPU right now", but GetTopProcesses pays at least
+	// the sampling window (300ms) in latency on every call.
+	CPUUsageInstant string = "instant"
+	// CPUUsageAverage computes each process's CPU usage as a lifetime
+	// average since it started (total CPU time / time since start),
+	// matching `ps`'s default %cpu. A single /proc read per process, no
+	// sampling wait - much faster, but can miss a process that's
+	// currently spiking after being idle for a long time.
+	CPUUsageAverage string = "average"
 )
 
 // SyStats holds information used to collect data
@@ -16,6 +28,9 @@ type SyStats struct {
 	EtcPath         string
 	UptimePath      string
 	MountsPath      string
+	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
+	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
+	ProcessCPUMode string
 }
 
 func New() SyStats {
@@ -27,6 +42,7 @@ func New() SyStats {
 		EtcPath:         "/etc/",
 		UptimePath:      "/proc/uptime",
 		MountsPath:      "/proc/mounts",
+		ProcessCPUMode:  CPUUsageInstant,
 	}
 }
 
