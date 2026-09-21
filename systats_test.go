@@ -6,6 +6,7 @@ import (
 
 	"github.com/dhamith93/systats"
 	"github.com/dhamith93/systats/exec"
+	"github.com/dhamith93/systats/internal/unitconv"
 )
 
 func TestGetMemoryKB(t *testing.T) {
@@ -82,6 +83,115 @@ func TestGetMemoryMB(t *testing.T) {
 	if got.PercentageUsed != 53.56737892069672 {
 		t.Errorf("Got invalid value. got: %f, want: %f", got.PercentageUsed, 53.56737892069672)
 		return
+	}
+}
+
+func TestNewDefaultsToContainerAwareFalse(t *testing.T) {
+	syStats := systats.New()
+	if syStats.ContainerAware {
+		t.Errorf("New().ContainerAware = true, want false (existing callers must keep today's host-wide behavior)")
+	}
+}
+
+func TestGetMemoryContainerAwareV2Limited(t *testing.T) {
+	syStats := systats.SyStats{
+		MeminfoPath:    "./test_files/meminfo.txt",
+		ContainerAware: true,
+		CgroupRootPath: "./test_files/cgroup_v2",
+		SelfCgroupPath: "./test_files/cgroup_v2/self_cgroup.txt",
+	}
+	got, err := syStats.GetMemory(systats.Kilobyte)
+	if err != nil {
+		t.Fatalf("GetMemory() returned error: %s", err.Error())
+	}
+
+	if !got.Limited {
+		t.Fatalf("Limited = false, want true")
+	}
+
+	wantTotal := unitconv.KibToKB(536870912 / 1024)
+	wantUsed := unitconv.KibToKB((104857600 - 10485760) / 1024)
+	if got.Total != wantTotal {
+		t.Errorf("Total = %d, want %d", got.Total, wantTotal)
+	}
+	if got.Used != wantUsed {
+		t.Errorf("Used = %d, want %d", got.Used, wantUsed)
+	}
+	if got.Available != got.Free {
+		t.Errorf("Available (%d) and Free (%d) should be equal when Limited", got.Available, got.Free)
+	}
+	if got.Available != got.Total-got.Used {
+		t.Errorf("Available = %d, want Total-Used = %d", got.Available, got.Total-got.Used)
+	}
+}
+
+func TestGetMemoryContainerAwareV1Limited(t *testing.T) {
+	syStats := systats.SyStats{
+		MeminfoPath:    "./test_files/meminfo.txt",
+		ContainerAware: true,
+		CgroupRootPath: "./test_files/cgroup_v1",
+		SelfCgroupPath: "./test_files/cgroup_v1/self_cgroup.txt",
+	}
+	got, err := syStats.GetMemory(systats.Kilobyte)
+	if err != nil {
+		t.Fatalf("GetMemory() returned error: %s", err.Error())
+	}
+
+	if !got.Limited {
+		t.Fatalf("Limited = false, want true")
+	}
+
+	wantTotal := unitconv.KibToKB(536870912 / 1024)
+	wantUsed := unitconv.KibToKB((104857600 - 10485760) / 1024) // proves total_inactive_file (not inactive_file) was used
+	if got.Total != wantTotal {
+		t.Errorf("Total = %d, want %d", got.Total, wantTotal)
+	}
+	if got.Used != wantUsed {
+		t.Errorf("Used = %d, want %d", got.Used, wantUsed)
+	}
+}
+
+func TestGetMemoryContainerAwareUnlimitedFallsBackToHost(t *testing.T) {
+	syStats := systats.SyStats{
+		MeminfoPath:    "./test_files/meminfo.txt",
+		ContainerAware: true,
+		CgroupRootPath: "./test_files/cgroup_v2_unlimited",
+		SelfCgroupPath: "./test_files/cgroup_v2_unlimited/self_cgroup.txt",
+	}
+	got, err := syStats.GetMemory(systats.Megabyte)
+	if err != nil {
+		t.Fatalf("GetMemory() returned error: %s", err.Error())
+	}
+
+	if got.Limited {
+		t.Errorf("Limited = true, want false when the cgroup has no configured limit")
+	}
+	// Should exactly match the plain host-wide TestGetMemoryMB values -
+	// no cgroup limit means no override at all.
+	if got.Total != 16315 {
+		t.Errorf("Total = %d, want 16315 (unchanged host-wide value)", got.Total)
+	}
+}
+
+func TestGetMemoryContainerAwareFalseIgnoresCgroup(t *testing.T) {
+	syStats := systats.SyStats{
+		MeminfoPath: "./test_files/meminfo.txt",
+		// ContainerAware left false (zero value) despite pointing at a
+		// fully valid, limited cgroup fixture - proves the feature is
+		// truly opt-in.
+		CgroupRootPath: "./test_files/cgroup_v2",
+		SelfCgroupPath: "./test_files/cgroup_v2/self_cgroup.txt",
+	}
+	got, err := syStats.GetMemory(systats.Megabyte)
+	if err != nil {
+		t.Fatalf("GetMemory() returned error: %s", err.Error())
+	}
+
+	if got.Limited {
+		t.Errorf("Limited = true, want false when ContainerAware is false")
+	}
+	if got.Total != 16315 {
+		t.Errorf("Total = %d, want 16315 (unchanged host-wide value)", got.Total)
 	}
 }
 

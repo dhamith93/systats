@@ -34,6 +34,19 @@ type SyStats struct {
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode string
+	// ContainerAware, when true, makes GetMemory and GetCPU look for a
+	// cgroup (v1 or v2) memory/CPU limit applying to the calling process
+	// and report container-relative numbers instead of host-wide
+	// /proc/meminfo and /proc/stat numbers (see Memory.Limited/
+	// CPU.Limited). This also applies under a plain systemd-managed
+	// cgroup with MemoryMax=/CPUQuota= set, not just inside a container.
+	// Defaults to false: today's host-wide behavior, unchanged.
+	ContainerAware bool
+	// CgroupRootPath is the mount point of the cgroup filesystem.
+	CgroupRootPath string
+	// SelfCgroupPath is the file listing which cgroup(s) the calling
+	// process belongs to.
+	SelfCgroupPath string
 }
 
 func New() SyStats {
@@ -47,6 +60,9 @@ func New() SyStats {
 		MountsPath:      "/proc/mounts",
 		LoadAvgPath:     "/proc/loadavg",
 		ProcessCPUMode:  CPUUsageInstant,
+		ContainerAware:  false,
+		CgroupRootPath:  "/sys/fs/cgroup",
+		SelfCgroupPath:  "/proc/self/cgroup",
 	}
 }
 
