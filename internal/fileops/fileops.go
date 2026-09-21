@@ -2,7 +2,6 @@ package fileops
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 
 // ReadFile read from given file
 func ReadFile(path string) string {
-	s, err := ioutil.ReadFile(path)
+	s, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
@@ -30,7 +29,7 @@ func ReadFileWithError(path string) (string, error) {
 // WriteFile write to given file
 func WriteFile(path string, input string) {
 	s := []byte(input)
-	err := ioutil.WriteFile(path, s, 0644)
+	err := os.WriteFile(path, s, 0644)
 	if err != nil {
 		logger.Log("Error", err.Error())
 	}
@@ -46,7 +45,7 @@ func IsFile(path string) bool {
 }
 
 func FindFileWithNameLike(dir string, name string) (string, error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return "", err
 	}
