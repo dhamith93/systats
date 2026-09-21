@@ -75,3 +75,60 @@ func pids(candidates []procCandidate) []int {
 	}
 	return out
 }
+
+func TestInstantCPUPercent(t *testing.T) {
+	cases := []struct {
+		name           string
+		ticks1, ticks2 uint64
+		elapsedSeconds float64
+		want           float64
+	}{
+		{"30% over 1s", 1000, 1030, 1.0, 30},
+		{"full core over 1s", 1000, 1100, 1.0, 100},
+		{"no change", 1000, 1000, 1.0, 0},
+		{"zero elapsed guards against div by zero", 1000, 1030, 0, 0},
+		{"negative elapsed guards too", 1000, 1030, -1, 0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := instantCPUPercent(c.ticks1, c.ticks2, c.elapsedSeconds)
+			if got != c.want {
+				t.Errorf("instantCPUPercent(%d, %d, %v) = %v, want %v", c.ticks1, c.ticks2, c.elapsedSeconds, got, c.want)
+			}
+		})
+	}
+}
+
+func TestAverageCPUPercent(t *testing.T) {
+	cases := []struct {
+		name                string
+		cpuTicks, starttime uint64
+		uptimeSeconds       float64
+		want                float64
+	}{
+		{"50% lifetime average, started at boot", 500, 0, 10, 50},
+		{"100% lifetime average, started 5s after boot", 1000, 500, 15, 100},
+		{"process barely older than now guards against div by zero", 100, 1000, 10, 0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := averageCPUPercent(c.cpuTicks, c.starttime, c.uptimeSeconds)
+			if got != c.want {
+				t.Errorf("averageCPUPercent(%d, %d, %v) = %v, want %v", c.cpuTicks, c.starttime, c.uptimeSeconds, got, c.want)
+			}
+		})
+	}
+}
+
+func TestSystemUptimeSeconds(t *testing.T) {
+	got, err := systemUptimeSeconds("./test_files/uptime.txt")
+	if err != nil {
+		t.Fatalf("systemUptimeSeconds returned error: %s", err.Error())
+	}
+	want := 12058.79
+	if got != want {
+		t.Errorf("systemUptimeSeconds() = %v, want %v", got, want)
+	}
+}
