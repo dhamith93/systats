@@ -41,6 +41,17 @@ func TestGetMemoryKB(t *testing.T) {
 	}
 }
 
+// TestGetMemoryRecoversFromPanic proves that a malformed /proc value
+// (which makes strops.ToUint64 panic internally) surfaces as a normal
+// error from GetMemory instead of crashing the caller.
+func TestGetMemoryRecoversFromPanic(t *testing.T) {
+	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo_corrupt.txt"}
+	_, err := syStats.GetMemory(systats.Kilobyte)
+	if err == nil {
+		t.Errorf("GetMemory() with corrupt input returned nil error, want a recovered-panic error")
+	}
+}
+
 func TestGetMemoryMB(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
 	got, err := syStats.GetMemory(systats.Megabyte)
