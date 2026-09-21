@@ -2,7 +2,6 @@ package exec
 
 import (
 	"os/exec"
-	"strings"
 )
 
 // Execute execs the command with params returns output or error msg
@@ -43,15 +42,4 @@ func ExecuteWithPipeAndError(command string, params ...string) (string, error) {
 		return string(stdout), err
 	}
 	return string(stdout), nil
-}
-
-// GetExecPath returns the execpath of binary
-func GetExecPath(cmd string) string {
-	result := Execute("whereis", cmd)
-	result = strings.TrimSpace(result)
-	resultArr := strings.Fields(result)
-	if len(resultArr) == 1 {
-		return ""
-	}
-	return resultArr[1]
 }
