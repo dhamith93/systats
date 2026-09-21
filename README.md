@@ -8,8 +8,9 @@ Provides following information on systems:
 * System
 	* Returns OS, Hostname, Kernel, Up time, last boot date, timezone, logged in users list
 * CPU
-	* CPU model, freq, load average (overall, per core), etc
+	* CPU model, freq, usage (overall, per core), load average (1/5/15 min), etc
 * Memory/SWAP
+	* Host-wide, or the calling process's cgroup limits (see [Container aware stats](#container-aware-stats))
 * Disks
 	* File system, type, mount point, usage, inodes
 * Networks
@@ -48,7 +49,7 @@ func main() {
 
 ### CPU
 
-CPU info and load avg info (overall, and per core)
+CPU info and usage info (overall, and per core)
 
 ```go
 func main() {
@@ -56,6 +57,11 @@ func main() {
 	cpu, err := systats.GetCPU()
 }
 ```
+
+Two different metrics live on `CPU`, don't mix them up:
+
+* `LoadAvg`/`CoreAvg` - CPU *utilization* as a percentage, sampled over a 300ms window.
+* `Load1`/`Load5`/`Load15` - the traditional Unix load average from `/proc/loadavg`, what `uptime` shows. Not a percentage, and can exceed 100.
 
 ### Memory
 
@@ -133,3 +139,29 @@ func main() {
 	procs, err := syStats.GetTopProcesses(10, "cpu")
 }
 ```
+
+### Container aware stats
+
+`GetMemory` and `GetCPU` read host-wide `/proc` by default. Inside a container that's the wrong machine - a service capped at 512MB will report the host's full RAM as `Total`, right up until it gets OOM-killed.
+
+Set `ContainerAware` to read the calling process's own cgroup (v1 and v2, auto-detected) instead:
+
+```go
+func main() {
+	syStats := systats.New()
+	syStats.ContainerAware = true
+
+	mem, err := syStats.GetMemory(systats.Megabyte)
+	// mem.Limited == true, mem.Total is the cgroup limit
+	cpu, err := syStats.GetCPU()
+	// cpu.Limited == true, cpu.LoadAvg is % of cpu.AllocatedCores
+}
+```
+
+Notes:
+
+* Defaults to off. When there's no cgroup or no limit configured, it silently falls back to the host-wide numbers - check `Memory.Limited`/`CPU.Limited` to tell which you got.
+* `AllocatedCores` is the quota in cores and can be fractional (Kubernetes `500m` is `0.5`). `NoOfCores` always means host cores.
+* This reports on its *own* cgroup, so it belongs inside the container it describes. It won't enumerate other containers on a host.
+* Also applies to plain systemd units with `MemoryMax=`/`CPUQuota=` set, not just containers.
+* `Load1`/`Load5`/`Load15` stay host-wide either way - there's no cgroup equivalent.
