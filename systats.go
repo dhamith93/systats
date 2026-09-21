@@ -30,6 +30,7 @@ type SyStats struct {
 	EtcPath         string
 	UptimePath      string
 	MountsPath      string
+	LoadAvgPath     string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode string
@@ -44,6 +45,7 @@ func New() SyStats {
 		EtcPath:         "/etc/",
 		UptimePath:      "/proc/uptime",
 		MountsPath:      "/proc/mounts",
+		LoadAvgPath:     "/proc/loadavg",
 		ProcessCPUMode:  CPUUsageInstant,
 	}
 }
