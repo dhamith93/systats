@@ -14,21 +14,21 @@ import (
 
 // Network holds interface information
 type Network struct {
-	Interface  string
-	Ip         string
-	Ipv6       string
-	MacAddress string
-	Usage      NetworkUsage
-	Time       int64
+	Interface  string       `json:"interface"`
+	Ip         string       `json:"ip"`
+	Ipv6       string       `json:"ipv6"`
+	MacAddress string       `json:"macAddress"`
+	Usage      NetworkUsage `json:"usage"`
+	Time       int64        `json:"time"`
 }
 
 // NetworkUsage holds Tx/Rx usage information
 type NetworkUsage struct {
-	State     string
-	RxBytes   uint64
-	TxBytes   uint64
-	RxPackets uint64
-	TxPackets uint64
+	State     string `json:"state"`
+	RxBytes   uint64 `json:"rxBytes"`
+	TxBytes   uint64 `json:"txBytes"`
+	RxPackets uint64 `json:"rxPackets"`
+	TxPackets uint64 `json:"txPackets"`
 }
 
 func getNetworks() ([]Network, error) {
@@ -124,14 +124,15 @@ func isPortOpen(port int) bool {
 	return true
 }
 
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 func canConnect(url string) (bool, error) {
-	status := false
-	resp, err := http.Get(url)
-	if err == nil {
-		status = true
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return false, err
 	}
 	defer resp.Body.Close()
-	return status, err
+	return true, nil
 }
 
 func establishedTCPConnCount(process string) int {
