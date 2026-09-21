@@ -16,3 +16,6 @@ run-test-linux:
 # Run the harness inside a disposable Linux container (needs docker/colima running)
 docker-test:
 	docker run --rm -v $(CURDIR):/src -w /src golang:1.24 go run ./build_test
+
+docker-test-with-limits:
+	docker run --rm -v $(CURDIR):/src -w /src --cpus=0.5 --memory=256m golang:1.24 go run ./build_test
