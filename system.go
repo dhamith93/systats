@@ -13,21 +13,21 @@ import (
 
 // System holds operating system information
 type System struct {
-	HostName      string
-	OS            string
-	Kernel        string
-	UpTime        string
-	LastBootDate  time.Time
-	LoggedInUsers []User
-	Time          int64
-	TimeZone      string
+	HostName      string    `json:"hostName"`
+	OS            string    `json:"os"`
+	Kernel        string    `json:"kernel"`
+	UpTime        string    `json:"upTime"`
+	LastBootDate  time.Time `json:"lastBootDate"`
+	LoggedInUsers []User    `json:"loggedInUsers"`
+	Time          int64     `json:"time"`
+	TimeZone      string    `json:"timeZone"`
 }
 
 // User holds logged in user information
 type User struct {
-	Username     string
-	RemoteHost   string
-	LoggedInTime time.Time
+	Username     string    `json:"username"`
+	RemoteHost   string    `json:"remoteHost"`
+	LoggedInTime time.Time `json:"loggedInTime"`
 }
 
 func getSystem(systats *SyStats) (System, error) {

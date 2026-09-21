@@ -12,29 +12,29 @@ import (
 
 // Disk holds information on single disk
 type Disk struct {
-	FileSystem string
-	Type       string
-	MountedOn  string
-	Usage      DiskUsage
-	Inodes     InodeUsage
-	Time       int64
+	FileSystem string     `json:"fileSystem"`
+	Type       string     `json:"type"`
+	MountedOn  string     `json:"mountedOn"`
+	Usage      DiskUsage  `json:"usage"`
+	Inodes     InodeUsage `json:"inodes"`
+	Time       int64      `json:"time"`
 }
 
 // DiskUsage holds information on single disk usage information
 type DiskUsage struct {
-	Size      uint64
-	Used      uint64
-	Available uint64
-	Usage     string
-	Unit      string
+	Size      uint64 `json:"size"`
+	Used      uint64 `json:"used"`
+	Available uint64 `json:"available"`
+	Usage     string `json:"usage"`
+	Unit      string `json:"unit"`
 }
 
 // InodeUsage holds information on single disk inode usage
 type InodeUsage struct {
-	Inodes    uint64
-	Available uint64
-	Used      uint64
-	Usage     string
+	Inodes    uint64 `json:"inodes"`
+	Available uint64 `json:"available"`
+	Used      uint64 `json:"used"`
+	Usage     string `json:"usage"`
 }
 
 type mountEntry struct {
