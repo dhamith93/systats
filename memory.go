@@ -12,13 +12,13 @@ import (
 
 // Memory holds information on system memory usage
 type Memory struct {
-	PercentageUsed float64
-	Available      uint64
-	Free           uint64
-	Used           uint64
-	Time           int64
-	Total          uint64
-	Unit           string
+	PercentageUsed float64 `json:"percentageUsed"`
+	Available      uint64  `json:"available"`
+	Free           uint64  `json:"free"`
+	Used           uint64  `json:"used"`
+	Time           int64   `json:"time"`
+	Total          uint64  `json:"total"`
+	Unit           string  `json:"unit"`
 }
 
 func getMemory(systats *SyStats, unit string) (Memory, error) {

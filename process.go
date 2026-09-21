@@ -15,11 +15,11 @@ import (
 
 // Process holds information on single process
 type Process struct {
-	Pid      int
-	ExecPath string
-	User     string
-	CPUUsage float32
-	MemUsage float32
+	Pid      int     `json:"pid"`
+	ExecPath string  `json:"execPath"`
+	User     string  `json:"user"`
+	CPUUsage float32 `json:"cpuUsage"`
+	MemUsage float32 `json:"memUsage"`
 }
 
 const (
