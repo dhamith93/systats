@@ -19,3 +19,8 @@ vendor/
 
 #macos
 .DS_Store
+
+# Manual test harness binaries, generated report, and profiles
+build_test/systats-test*
+build_test/report.html
+build_test/*.prof
