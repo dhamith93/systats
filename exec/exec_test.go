@@ -1,6 +1,9 @@
 package exec
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestExecuteSuccess(t *testing.T) {
 	got := Execute("echo", "hello")
@@ -58,5 +61,34 @@ func TestExecuteWithPipeAndErrorFailure(t *testing.T) {
 	_, err := ExecuteWithPipeAndError("false")
 	if err == nil {
 		t.Errorf("ExecuteWithPipeAndError(false) returned nil error, want non-nil")
+	}
+}
+
+// TestExecuteForcesCLocale verifies subprocesses run under LC_ALL=C, so
+// their output stays parseable regardless of the host's configured
+// locale (e.g. service.go's "Active: active" match against systemctl
+// output).
+func TestExecuteForcesCLocale(t *testing.T) {
+	got := Execute("printenv", "LC_ALL")
+	if got != "C\n" {
+		t.Errorf("Execute(printenv, LC_ALL) = %q, want %q", got, "C\n")
+	}
+}
+
+// TestExecuteRespectsTimeout verifies a subprocess is actually killed
+// once defaultExecTimeout elapses, rather than blocking the caller
+// forever. Shrinks the package-level timeout for the duration of the
+// test so this doesn't need to wait out the real 5s default.
+func TestExecuteRespectsTimeout(t *testing.T) {
+	original := defaultExecTimeout
+	defaultExecTimeout = 100 * time.Millisecond
+	defer func() { defaultExecTimeout = original }()
+
+	start := time.Now()
+	Execute("sleep", "10")
+	elapsed := time.Since(start)
+
+	if elapsed > 2*time.Second {
+		t.Errorf("Execute(sleep, 10) took %v with a 100ms timeout, want well under 2s", elapsed)
 	}
 }
