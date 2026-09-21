@@ -110,7 +110,7 @@ func readAsUint64(path string) uint64 {
 func readAsString(path string) string {
 	result, err := fileops.ReadFileWithError(path)
 	if err != nil {
-		return "error"
+		return ""
 	}
 	return strings.TrimSpace(result)
 }
