@@ -119,6 +119,17 @@ func main() {
 		})
 	}
 
+	// The host-vs-container CPU% comparison is the clearest single
+	// signal that quota-relative accounting works, so surface it as a
+	// Checks row rather than leaving it buried in each section's JSON.
+	if cpuErr == nil && cgCPUErr == nil {
+		data.Checks = append(data.Checks, check{
+			Name:     "CPU usage % (host-wide vs container-aware)",
+			Value:    fmt.Sprintf("%d%% vs %d%%", cpuResult.LoadAvg, cgCPU.LoadAvg),
+			Duration: (cpuDuration + cgCPUDuration).String(),
+		})
+	}
+
 	syStats.ContainerAware = false
 
 	syStats.ProcessCPUMode = systats.CPUUsageInstant
