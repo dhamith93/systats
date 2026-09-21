@@ -13,6 +13,21 @@ All notable changes to this project are documented here, following the
   `GetTopProcesses`, or `EstablishedTCPConnCount` anymore.
 
 ### Added
+- `SyStats.ContainerAware` - opt-in (default false, so nothing changes
+  for existing callers). When set, `GetMemory`/`GetCPU` report the
+  calling process's own cgroup limits (v1 and v2, auto-detected) instead
+  of host-wide `/proc` numbers, which are the wrong machine inside a
+  container. Adds `Memory.Limited`, `CPU.Limited` and
+  `CPU.AllocatedCores` (the quota in cores, fractional - Kubernetes
+  `500m` is `0.5`), plus overridable `SyStats.CgroupRootPath` and
+  `SyStats.SelfCgroupPath`. Falls back silently to host-wide values when
+  there's no cgroup or no limit configured; check `Limited` to tell
+  which you got.
+- `CPU.Load1`/`Load5`/`Load15` - the traditional Unix load average from
+  `/proc/loadavg` (what `uptime` shows), alongside the existing
+  `LoadAvg`/`CoreAvg` which are CPU *utilization* percentages. Adds
+  overridable `SyStats.LoadAvgPath`. These stay host-wide even with
+  `ContainerAware` set - there's no cgroup equivalent.
 - `SyStats.ProcessCPUMode` - selects how `GetTopProcesses` computes CPU
   usage: `CPUUsageInstant` (default, a live sampling window, like `top`)
   or `CPUUsageAverage` (lifetime average since process start, like
