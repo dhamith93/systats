@@ -36,10 +36,13 @@ func WriteFile(path string, input string) {
 	}
 }
 
-// IsFile check if file exists
+// IsFile check if path exists and is a regular file (not a directory)
 func IsFile(path string) bool {
-	_, err := os.Open(path)
-	return err == nil
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func FindFileWithNameLike(dir string, name string) (string, error) {
