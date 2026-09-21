@@ -1,5 +1,7 @@
 package systats
 
+import "fmt"
+
 const (
 	Byte     string = "B"
 	Kilobyte string = "KB"
@@ -46,24 +48,37 @@ func New() SyStats {
 	}
 }
 
+// withRecover converts any panic raised while calling fn into a returned
+// error, instead of crashing the caller. This is the defensive boundary
+// for internal helpers (e.g. strops.ToUint64/ToFloat64) that panic on
+// unexpected /proc content rather than returning an error themselves.
+func withRecover[T any](fn func() (T, error)) (result T, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("systats: recovered from panic: %v", r)
+		}
+	}()
+	return fn()
+}
+
 func (systats *SyStats) GetMemory(unit string) (Memory, error) {
-	return getMemory(systats, unit)
+	return withRecover(func() (Memory, error) { return getMemory(systats, unit) })
 }
 
 func (systats *SyStats) GetSwap(unit string) (Swap, error) {
-	return getSwap(systats, unit)
+	return withRecover(func() (Swap, error) { return getSwap(systats, unit) })
 }
 
 func (systats *SyStats) GetCPU() (CPU, error) {
-	return getCPU(systats, 300)
+	return withRecover(func() (CPU, error) { return getCPU(systats, 300) })
 }
 
 func (systats *SyStats) GetSystem() (System, error) {
-	return getSystem(systats)
+	return withRecover(func() (System, error) { return getSystem(systats) })
 }
 
 func (systats *SyStats) GetNetworks() ([]Network, error) {
-	return getNetworks()
+	return withRecover(func() ([]Network, error) { return getNetworks() })
 }
 
 func (systats *SyStats) GetNetworkUsage(networkInterface string) NetworkUsage {
@@ -75,11 +90,11 @@ func (systats *SyStats) IsServiceRunning(service string) bool {
 }
 
 func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, error) {
-	return getTopProcesses(systats, count, sort)
+	return withRecover(func() ([]Process, error) { return getTopProcesses(systats, count, sort) })
 }
 
 func (systats *SyStats) GetDisks() ([]Disk, error) {
-	return getDisks(systats)
+	return withRecover(func() ([]Disk, error) { return getDisks(systats) })
 }
 
 func (systats *SyStats) IsPortOpen(port int) bool {
@@ -87,7 +102,7 @@ func (systats *SyStats) IsPortOpen(port int) bool {
 }
 
 func (systats *SyStats) CanConnectExternal(url string) (bool, error) {
-	return canConnect(url)
+	return withRecover(func() (bool, error) { return canConnect(url) })
 }
 
 func (systats *SyStats) EstablishedTCPConnCount(procName string) int {
