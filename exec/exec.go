@@ -59,7 +59,7 @@ func ExecuteWithError(command string, params ...string) (string, error) {
 }
 
 // ExecuteWithPipeAndError execs commands with pipe returns output and error
-func ExecuteWithPipeAndError(command string, params ...string) (string, error) {
+func ExecuteWithPipeAndError(command string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultExecTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
