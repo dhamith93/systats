@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,13 +13,16 @@ import (
 
 // CPU holds information on CPU and CPU usage
 type CPU struct {
-	LoadAvg   int    `json:"loadAvg"`
-	CoreAvg   []int  `json:"coreAvg"`
-	Model     string `json:"model"`
-	NoOfCores int    `json:"noOfCores"`
-	Freq      string `json:"freq"`
-	Cache     string `json:"cache"`
-	Time      int64  `json:"time"`
+	LoadAvg   int     `json:"loadAvg"`
+	CoreAvg   []int   `json:"coreAvg"`
+	Load1     float64 `json:"load1"`
+	Load5     float64 `json:"load5"`
+	Load15    float64 `json:"load15"`
+	Model     string  `json:"model"`
+	NoOfCores int     `json:"noOfCores"`
+	Freq      string  `json:"freq"`
+	Cache     string  `json:"cache"`
+	Time      int64   `json:"time"`
 }
 
 func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
@@ -43,7 +47,29 @@ func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
 
 	processCPUInfoFileContent(&output, &cpuinfoStr)
 
+	loadAvgStr, err := fileops.ReadFileWithError(systats.LoadAvgPath)
+	if err != nil {
+		return output, err
+	}
+	if err := processLoadAvgFileContent(&output, &loadAvgStr); err != nil {
+		return output, err
+	}
+
 	return output, nil
+}
+
+// processLoadAvgFileContent parses /proc/loadavg's 1/5/15-minute load
+// averages - the traditional Unix "load average" (uptime/top/w), distinct
+// from LoadAvg/CoreAvg above which are CPU utilization percentages.
+func processLoadAvgFileContent(output *CPU, content *string) error {
+	fields := strings.Fields(*content)
+	if len(fields) < 3 {
+		return errors.New("unexpected loadavg format")
+	}
+	output.Load1 = strops.ToFloat64(fields[0])
+	output.Load5 = strops.ToFloat64(fields[1])
+	output.Load15 = strops.ToFloat64(fields[2])
+	return nil
 }
 
 func processCPUInfoFileContent(output *CPU, content *string) {

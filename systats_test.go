@@ -145,6 +145,7 @@ func TestGetCPU(t *testing.T) {
 	syStats := systats.SyStats{
 		CPUinfoFilePath: "./test_files/cpuinfo.txt",
 		StatFilePath:    "/proc/stat",
+		LoadAvgPath:     "./test_files/loadavg.txt",
 	}
 	cpu, err := syStats.GetCPU()
 	if err != nil {
@@ -158,6 +159,21 @@ func TestGetCPU(t *testing.T) {
 
 	if cpu.NoOfCores != 4 {
 		t.Errorf("Got invalid value. got: %d, want: %d", cpu.NoOfCores, 4)
+		return
+	}
+
+	if cpu.Load1 != 0.52 {
+		t.Errorf("Got invalid value. got: %f, want: %f", cpu.Load1, 0.52)
+		return
+	}
+
+	if cpu.Load5 != 0.58 {
+		t.Errorf("Got invalid value. got: %f, want: %f", cpu.Load5, 0.58)
+		return
+	}
+
+	if cpu.Load15 != 0.59 {
+		t.Errorf("Got invalid value. got: %f, want: %f", cpu.Load15, 0.59)
 		return
 	}
 }
