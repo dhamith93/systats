@@ -1,0 +1,7 @@
+MemTotal:       NOTANUMBER kB
+MemFree:         3829260 kB
+MemAvailable:    8018336 kB
+Buffers:          591116 kB
+Cached:          3155264 kB
+SwapTotal:       2097148 kB
+SwapFree:        2017148 kB
