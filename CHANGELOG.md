@@ -27,6 +27,12 @@ All notable changes to this project are documented here, following the
   818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
+- **`GetTemperatures()`** - temperature sensor readings from
+  `/sys/class/hwmon`. A host with no hwmon chips (most VMs and containers)
+  returns an empty slice rather than an error. `High`/`Critical` are the
+  chip's own thresholds and aren't always published - check
+  `HighAvailable`/`CriticalAvailable`, since a zero threshold would make
+  every reading look over-limit. Overridable via `SyStats.HwmonPath`.
 - **`GetPressure()`** - Pressure Stall Information from `/proc/pressure`:
   how much time tasks spent stalled on CPU, memory and I/O. This is the
   metric that distinguishes a machine that's busy from one that's

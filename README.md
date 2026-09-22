@@ -12,9 +12,13 @@ Provides following information on systems:
 * Memory/SWAP
 	* Host-wide, or the calling process's cgroup limits (see [Container aware stats](#container-aware-stats))
 * Disks
-	* File system, type, mount point, usage, inodes
+	* File system, type, mount point, usage, inodes, per-device I/O counters
 * Networks
-	* Interface, IP, Rx/Tx
+	* Interface, IP, Rx/Tx, TCP connection states, protocol counters
+* Pressure
+	* CPU/memory/IO stall time (PSI), host-wide or per-cgroup
+* Temperatures
+	* Per-sensor readings from hwmon chips
 * Service status
 	* Returns if given service is active or not
 * Processes
@@ -172,6 +176,24 @@ Notes:
 * `/proc/pressure/cpu` has no `full` line on most kernels. Check `FullAvailable` per resource.
 * `Avg10`/`Avg60`/`Avg300` are percentages; `Total` is cumulative microseconds and is the field to diff between polls.
 * With `ContainerAware`, reports your own cgroup v2 pressure instead of the host's. cgroup v1 has no PSI, so it falls back host-wide - check `Limited`.
+
+### Temperatures
+
+Sensor readings from `/sys/class/hwmon`.
+
+```go
+func main() {
+	syStats := systats.New()
+	temps, err := syStats.GetTemperatures()
+	// t.Name ("coretemp"), t.Label ("Package id 0"), t.Celsius
+}
+```
+
+Notes:
+
+* Most VMs and containers have no hwmon chips - you get an empty slice, not an error.
+* `High`/`Critical` are the chip's own thresholds and aren't always published. Check `HighAvailable`/`CriticalAvailable`, or every reading will look over-limit against a zero threshold.
+* `Label` falls back to the sensor's file prefix (`temp1`) on chips that publish no label - common on ARM boards.
 
 ### Networks
 

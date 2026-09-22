@@ -112,6 +112,26 @@ func main() {
 	data.Sections = append(data.Sections, timedCollect("GetTCPConnectionStates", func() (any, error) { return syStats.GetTCPConnectionStates() }))
 	data.Sections = append(data.Sections, timedCollect("GetProtocolStats", func() (any, error) { return syStats.GetProtocolStats() }))
 	data.Sections = append(data.Sections, timedCollect("GetPressure", func() (any, error) { return syStats.GetPressure() }))
+	data.Sections = append(data.Sections, timedCollect("GetTemperatures", func() (any, error) { return syStats.GetTemperatures() }))
+
+	// Compare against `sensors` where lm-sensors is installed, or
+	// /sys/class/thermal/thermal_zone0/temp on a Pi.
+	data.Checks = append(data.Checks, timedCheck("Temperature sensors found", func() string {
+		temps, err := syStats.GetTemperatures()
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		if len(temps) == 0 {
+			return "0 (no hwmon chips - normal in a VM or container)"
+		}
+		hottest := temps[0]
+		for _, t := range temps {
+			if t.Celsius > hottest.Celsius {
+				hottest = t
+			}
+		}
+		return fmt.Sprintf("%d (hottest: %s/%s at %.1f C)", len(temps), hottest.Name, hottest.Label, hottest.Celsius)
+	}))
 
 	// PSI needs kernel 4.20+ with CONFIG_PSI=y, so surface availability as
 	// its own row - all-zero pressure and no-PSI-at-all look identical in

@@ -78,6 +78,9 @@ type SyStats struct {
 	// PressurePath is the directory holding the kernel's Pressure Stall
 	// Information files (cpu, memory, io).
 	PressurePath string
+	// HwmonPath is the sysfs directory holding hardware monitoring chips
+	// and their temperature sensors.
+	HwmonPath string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode CPUMode
@@ -130,6 +133,7 @@ func New() SyStats {
 		NetNetstatPath:  "/proc/net/netstat",
 		SysClassNetPath: "/sys/class/net",
 		PressurePath:    "/proc/pressure",
+		HwmonPath:       "/sys/class/hwmon",
 		ProcessCPUMode:  CPUUsageInstant,
 		ContainerAware:  false,
 		CgroupRootPath:  "/sys/fs/cgroup",
@@ -304,6 +308,19 @@ func (systats *SyStats) GetTCPConnectionStates() (TCPStates, error) {
 // falls back to host-wide).
 func (systats *SyStats) GetPressure() (Pressure, error) {
 	return withRecover(func() (Pressure, error) { return getPressure(systats) })
+}
+
+// GetTemperatures returns temperature sensor readings from
+// /sys/class/hwmon - CPU package and core temps, and whatever else the
+// board exposes.
+//
+// A host with no hwmon chips (most VMs and containers) returns an empty
+// slice rather than an error. Sensors that don't publish a high or
+// critical threshold set HighAvailable/CriticalAvailable false; treating
+// those zeros as real thresholds would make every reading look
+// over-limit.
+func (systats *SyStats) GetTemperatures() ([]Temperature, error) {
+	return withRecover(func() ([]Temperature, error) { return getTemperatures(systats) })
 }
 
 // GetProtocolStats returns per-protocol network counters from
