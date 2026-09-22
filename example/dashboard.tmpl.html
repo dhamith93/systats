@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Host.Hostname}}{{.Host.Hostname}} · {{end}}systats</title>
+{{if .Refresh}}<meta http-equiv="refresh" content="{{.RefreshSeconds}}">{{end}}
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --line: #e3e5e9; --ink: #1a1c1f;
+  --muted: #6b7280; --faint: #f0f1f4; --accent: #3b82c4; --track: #e8eaee;
+  --shadow: 0 1px 2px rgba(16,18,22,.06), 0 1px 8px rgba(16,18,22,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a; --panel: #1c1f24; --line: #2a2e35; --ink: #e8eaed;
+    --muted: #9aa1ab; --faint: #22262c; --accent: #5a9fd4; --track: #2a2e35;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 1.75rem 1.5rem 3rem;
+  background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); }
+header { max-width: 1280px; margin: 0 auto 1.5rem; }
+h1 { font-size: 1.35rem; margin: 0 0 .2rem; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: .85rem; }
+.wrap { max-width: 1280px; margin: 0 auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.grid.wide { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); }
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 1rem 1.1rem 1.1rem; box-shadow: var(--shadow); min-width: 0;
+}
+.panel h2 {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin: 0 0 .9rem; font-weight: 600;
+}
+.span-all { grid-column: 1 / -1; }
+.gauge-row { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
+.gauge { flex: 0 0 auto; }
+.gauge text.value { font-size: 26px; font-weight: 650; fill: var(--ink); }
+.gauge text.caption { font-size: 11px; fill: var(--muted); letter-spacing: .04em; }
+.stats { display: grid; gap: .3rem; font-size: .85rem; min-width: 0; }
+.stats div { display: flex; justify-content: space-between; gap: 1.25rem; }
+.stats dt, .stats .k { color: var(--muted); }
+.stats .v { font-variant-numeric: tabular-nums; font-weight: 550; }
+.bars { display: grid; gap: .45rem; }
+.bar-line { display: grid; grid-template-columns: 4.2rem 1fr 3.6rem; align-items: center; gap: .6rem; font-size: .78rem; }
+.bar-line .lbl { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-line .val { text-align: right; font-variant-numeric: tabular-nums; }
+.track { background: var(--track); border-radius: 999px; height: 7px; overflow: hidden; }
+.fill { height: 100%; border-radius: 999px; }
+.cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .45rem 1rem; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th {
+  text-align: left; font-weight: 600; color: var(--muted); font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .05em; padding: 0 .55rem .45rem; border-bottom: 1px solid var(--line);
+}
+td { padding: .5rem .55rem; border-bottom: 1px solid var(--faint); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.mono, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; }
+td.trunc { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scroll { overflow-x: auto; }
+.pill {
+  display: inline-block; padding: .1rem .5rem; border-radius: 999px;
+  font-size: .7rem; font-weight: 600; letter-spacing: .03em;
+}
+.pill-ok { background: rgba(47,158,68,.14); color: #2f9e44; }
+.pill-warn { background: rgba(232,163,23,.16); color: #b57e0a; }
+.pill-crit { background: rgba(214,69,69,.14); color: #d64545; }
+.pill-muted { background: var(--faint); color: var(--muted); }
+.stacked { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--track); }
+.stacked span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: .35rem .9rem; margin-top: .7rem; font-size: .78rem; }
+.legend span.dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: .35rem; }
+.legend div { display: flex; align-items: center; color: var(--muted); }
+.legend b { color: var(--ink); font-weight: 600; margin-left: .3rem; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .82rem; }
+.banner {
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  background: var(--panel); border-radius: 8px; padding: .85rem 1rem; margin-bottom: 1rem;
+}
+.banner h2 { margin-bottom: .6rem; }
+.temp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .8rem; }
+.temp { text-align: center; }
+.temp .chip { font-size: .7rem; color: var(--muted); margin-top: .2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.temp .lim { font-size: .65rem; color: var(--muted); }
+footer { max-width: 1280px; margin: 1.75rem auto 0; color: var(--muted); font-size: .78rem; }
+footer code { background: var(--faint); padding: .1rem .35rem; border-radius: 4px; }
+.problems { margin-top: 1rem; }
+.problems li { margin-bottom: .25rem; }
+</style>
+</head>
+<body>
+
+{{- /* A donut gauge. Every number is pre-computed in render.go. */ -}}
+{{define "gauge"}}
+<svg class="gauge" width="{{.Size}}" height="{{.Size}}" viewBox="0 0 {{.Size}} {{.Size}}" role="img" aria-label="{{.Caption}} {{.Label}}">
+  <circle cx="{{.Center}}" cy="{{.Center}}" r="{{.Radius}}" fill="none" stroke="var(--track)" stroke-width="12"/>
+  <circle cx="{{.Center}}" cy="{{.Center}}" r="{{.Radius}}" fill="none" stroke="{{.Color}}" stroke-width="12"
+          stroke-dasharray="{{.Dash}} {{.Gap}}" stroke-linecap="round"
+          transform="rotate(-90 {{.Center}} {{.Center}})"/>
+  <text class="value" x="{{.Center}}" y="{{.Center}}" text-anchor="middle" dy=".1em">{{.Label}}</text>
+  <text class="caption" x="{{.Center}}" y="{{.Center}}" text-anchor="middle" dy="1.75em">{{.Caption}}</text>
+</svg>
+{{end}}
+
+{{- define "bars"}}
+<div class="bars">
+{{range .}}
+  <div class="bar-line">
+    <span class="lbl">{{.Label}}</span>
+    <span class="track"><span class="fill" style="width:{{.Width}}%;background:{{.Color}}"></span></span>
+    <span class="val">{{.Value}}</span>
+  </div>
+{{end}}
+</div>
+{{end}}
+
+<header>
+  <h1>{{if .Host.Hostname}}{{.Host.Hostname}}{{else}}systats dashboard{{end}}</h1>
+  <div class="sub">
+    {{if .Host.OS}}{{.Host.OS}} · {{end}}
+    {{if .Host.Kernel}}kernel {{.Host.Kernel}} · {{end}}
+    {{if .Host.Uptime}}up {{.Host.Uptime}} · {{end}}
+    generated {{.GeneratedAt}} in {{.Elapsed}}
+  </div>
+</header>
+
+<div class="wrap">
+
+{{if .Container}}
+<div class="banner">
+  <h2>Container limits detected</h2>
+  <div class="gauge-row">
+    {{if .Container.MemoryLimited}}
+      {{template "gauge" .Container.MemoryGauge}}
+      <div class="stats">
+        <div><span class="k">Memory limit</span><span class="v">{{.Container.MemoryLimit}}</span></div>
+        <div><span class="k">Host reports</span><span class="v">{{.Container.MemoryHost}}</span></div>
+      </div>
+    {{end}}
+    {{if .Container.CPULimited}}
+      {{template "gauge" .Container.CPUGauge}}
+      <div class="stats">
+        <div><span class="k">Allocated cores</span><span class="v">{{.Container.AllocatedCores}}</span></div>
+        <div><span class="k">Host cores</span><span class="v">{{.Container.HostCores}}</span></div>
+      </div>
+    {{end}}
+  </div>
+  <p class="note" style="margin:.7rem 0 0">
+    These come from this process's own cgroup rather than <code>/proc</code>.
+    Without <code>ContainerAware</code> the memory figure would be the host's.
+  </p>
+</div>
+{{end}}
+
+<div class="grid">
+
+  {{if .CPU.OK}}
+  <div class="panel">
+    <h2>CPU</h2>
+    <div class="gauge-row">
+      {{template "gauge" .CPU.Gauge}}
+      <div class="stats">
+        <div><span class="k">Load 1m</span><span class="v">{{.CPU.Load1}}</span></div>
+        <div><span class="k">Load 5m</span><span class="v">{{.CPU.Load5}}</span></div>
+        <div><span class="k">Load 15m</span><span class="v">{{.CPU.Load15}}</span></div>
+        <div><span class="k">Cores</span><span class="v">{{.CPU.CoresLabel}}</span></div>
+      </div>
+    </div>
+    {{if .CPU.Cores}}
+    <div class="cores" style="margin-top:.9rem">
+      {{range .CPU.Cores}}
+      <div class="bar-line" style="grid-template-columns:3rem 1fr 2.6rem">
+        <span class="lbl">{{.Label}}</span>
+        <span class="track"><span class="fill" style="width:{{.Width}}%;background:{{.Color}}"></span></span>
+        <span class="val">{{.Value}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{if .CPU.Model}}<p class="note" style="margin:.8rem 0 0">{{.CPU.Model}}</p>{{end}}
+  </div>
+  {{end}}
+
+  {{if .Memory.OK}}
+  <div class="panel">
+    <h2>Memory</h2>
+    <div class="gauge-row">
+      {{template "gauge" .Memory.Gauge}}
+      <div class="stats">
+        <div><span class="k">Used</span><span class="v">{{.Memory.Used}}</span></div>
+        <div><span class="k">Total</span><span class="v">{{.Memory.Total}}</span></div>
+        <div><span class="k">Free</span><span class="v">{{.Memory.Free}}</span></div>
+        <div><span class="k">Available</span><span class="v">{{.Memory.Detail}}</span></div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  {{if .Swap.OK}}
+  <div class="panel">
+    <h2>Swap</h2>
+    {{if .Swap.Present}}
+    <div class="gauge-row">
+      {{template "gauge" .Swap.Gauge}}
+      <div class="stats">
+        <div><span class="k">Used</span><span class="v">{{.Swap.Used}}</span></div>
+        <div><span class="k">Total</span><span class="v">{{.Swap.Total}}</span></div>
+        <div><span class="k">Free</span><span class="v">{{.Swap.Free}}</span></div>
+      </div>
+    </div>
+    {{else}}
+    <p class="note">Swap is {{.Swap.Detail}}.</p>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if .TCP.OK}}
+  <div class="panel">
+    <h2>TCP sockets <span class="pill pill-muted">{{.TCP.Total}} total</span></h2>
+    {{if .TCP.Segments}}
+    <div class="stacked">
+      {{range .TCP.Segments}}<span style="width:{{.Width}}%;background:{{.Color}}" title="{{.Label}}"></span>{{end}}
+    </div>
+    <div class="legend">
+      {{range $i, $s := .TCP.Segments}}
+      <div><span class="dot" style="background:{{$s.Color}}"></span>{{$s.Label}}<b>{{(index $.TCP.Rows $i).Value}}</b></div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="note">No TCP sockets in this network namespace.</p>
+    {{end}}
+  </div>
+  {{end}}
+
+</div>
+
+{{if .Pressure.Available}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Pressure stall information
+    {{if .Pressure.Limited}}<span class="pill pill-muted">cgroup</span>{{else}}<span class="pill pill-muted">host-wide</span>{{end}}
+  </h2>
+  <div class="grid">
+    {{range .Pressure.Resources}}
+    <div>
+      <div class="stats" style="margin-bottom:.5rem">
+        <div><span class="k"><b style="color:var(--ink)">{{.Name}}</b> &mdash; some</span><span class="v">{{.SomeTotal}} stalled</span></div>
+      </div>
+      {{template "bars" .Some}}
+      {{if .FullAvailable}}
+        <div class="stats" style="margin:.7rem 0 .5rem"><div><span class="k">full</span><span class="v"></span></div></div>
+        {{template "bars" .Full}}
+      {{else}}
+        <p class="note" style="margin:.6rem 0 0">No <code>full</code> line for this resource on this kernel.</p>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  <p class="note" style="margin:.9rem 0 0">
+    <b>some</b> is the share of time at least one task was stalled; <b>full</b> is the share where nothing ran at all.
+    Percentages are over the last 10, 60 and 300 seconds.
+  </p>
+</div>
+{{else}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Pressure stall information</h2>
+  <p class="note">{{.Pressure.Note}}</p>
+</div>
+{{end}}
+
+{{if .Temps}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Temperatures</h2>
+  <div class="temp-grid">
+    {{range .Temps}}
+    <div class="temp">
+      {{template "gauge" .Gauge}}
+      <div class="chip" title="{{.Chip}}">{{.Chip}}</div>
+      <div class="lim">{{.Limits}}</div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{if .Disks}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Filesystems</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Mounted on</th><th>Device</th><th>Type</th><th style="width:26%">Usage</th>
+      <th class="num">Used</th><th class="num">Size</th><th class="num">Available</th><th class="num">Inodes</th>
+    </tr></thead>
+    <tbody>
+    {{range .Disks}}
+      <tr>
+        <td class="mono">{{.MountedOn}}</td>
+        <td class="mono trunc">{{.Device}}</td>
+        <td>{{.Type}}</td>
+        <td>
+          <span class="track" style="display:block"><span class="fill" style="width:{{.Bar.Width}}%;background:{{.Bar.Color}}"></span></span>
+        </td>
+        <td class="num">{{.Used}}</td>
+        <td class="num">{{.Size}}</td>
+        <td class="num">{{.Available}}</td>
+        <td class="num">{{.InodePct}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+
+<div class="grid wide" style="margin-top:1rem">
+
+  {{if .DiskIO}}
+  <div class="panel">
+    <h2>Disk I/O <span class="pill pill-muted">rates</span></h2>
+    <div class="scroll">
+    <table>
+      <thead><tr><th>Device</th><th class="num">Read</th><th class="num">Write</th><th class="num">IOPS</th><th style="width:22%">Util</th></tr></thead>
+      <tbody>
+      {{range .DiskIO}}
+        <tr>
+          <td class="mono">{{.Device}}</td>
+          <td class="num">{{.ReadRate}}</td>
+          <td class="num">{{.WriteRate}}</td>
+          <td class="num">{{.IOPS}}</td>
+          <td><span class="track" style="display:block"><span class="fill" style="width:{{.Util.Width}}%;background:{{.Util.Color}}"></span></span></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+    <p class="note" style="margin:.8rem 0 0">Derived from two <code>/proc/diskstats</code> reads via <code>RatesSince</code>; the raw counters are cumulative since boot.</p>
+  </div>
+  {{end}}
+
+  {{if .Networks}}
+  <div class="panel">
+    <h2>Network interfaces</h2>
+    <div class="scroll">
+    <table>
+      <thead><tr><th>Interface</th><th>Address</th><th class="num">Rx</th><th class="num">Tx</th><th class="num">Rx/s</th><th class="num">Tx/s</th></tr></thead>
+      <tbody>
+      {{range .Networks}}
+        <tr>
+          <td class="mono">{{.Interface}}
+            {{if .Up}}<span class="pill pill-ok">up</span>{{else}}<span class="pill pill-muted">{{.State}}</span>{{end}}
+          </td>
+          <td class="mono trunc" title="{{.IPv6}}">{{if .IP}}{{.IP}}{{else}}{{.IPv6}}{{end}}</td>
+          <td class="num">{{.RxTotal}}</td>
+          <td class="num">{{.TxTotal}}</td>
+          <td class="num">{{.RxRate}}</td>
+          <td class="num">{{.TxRate}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {{end}}
+
+</div>
+
+{{if .Processes}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Top processes <span class="pill pill-muted">by CPU, lifetime average</span></h2>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th class="num">PID</th><th>Name</th><th>User</th><th>State</th>
+      <th class="num">Threads</th><th class="num">FDs</th>
+      <th style="width:15%">CPU</th><th class="num">%</th>
+      <th style="width:15%">Memory</th><th class="num">%</th>
+      <th>Command</th>
+    </tr></thead>
+    <tbody>
+    {{range .Processes}}
+      <tr>
+        <td class="num mono">{{.Pid}}</td>
+        <td>{{.Name}}</td>
+        <td>{{.User}}</td>
+        <td>{{.State}}</td>
+        <td class="num">{{.Threads}}</td>
+        <td class="num">{{.OpenFDs}}</td>
+        <td><span class="track" style="display:block"><span class="fill" style="width:{{.CPUBar.Width}}%;background:{{.CPUBar.Color}}"></span></span></td>
+        <td class="num">{{.CPU}}</td>
+        <td><span class="track" style="display:block"><span class="fill" style="width:{{.MemBar.Width}}%;background:{{.MemBar.Color}}"></span></span></td>
+        <td class="num">{{.Mem}}</td>
+        <td class="mono trunc" title="{{.ExecPath}}">{{.ExecPath}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
+{{end}}
+
+{{if .Problems}}
+<div class="panel span-all problems" style="margin-top:1rem">
+  <h2>Unavailable on this host</h2>
+  <ul class="note" style="margin:0; padding-left:1.1rem">
+    {{range .Problems}}<li><b>{{.Panel}}</b> &mdash; {{.Err}}</li>{{end}}
+  </ul>
+  <p class="note" style="margin:.8rem 0 0">
+    Each panel degrades on its own rather than failing the page. Most of these are expected off Linux.
+  </p>
+</div>
+{{end}}
+
+<footer>
+  Generated by <code>example/</code> in
+  <a href="https://github.com/dhamith93/systats">github.com/dhamith93/systats</a>.
+  Self-contained: no scripts, no external assets.
+</footer>
+
+</div>
+</body>
+</html>
