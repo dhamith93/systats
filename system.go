@@ -114,18 +114,39 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 }
 
 func processLoggedInUsers(ctx context.Context, system *System, systats *SyStats) {
-	// NAME LINE TIME COMMENT
-	split := strings.Split(exec.ExecuteWithContext(ctx, "who"), "\n")
 	system.LoggedInUsers = []User{}
-	for _, line := range split {
-		loggedInInfo := strings.Fields(line)
-		if len(loggedInInfo) >= 5 {
-			loggedInTime, _ := time.Parse("2006-01-02 15:04", loggedInInfo[2]+" "+loggedInInfo[3])
-			system.LoggedInUsers = append(system.LoggedInUsers, User{
-				Username:     loggedInInfo[0],
-				LoggedInTime: loggedInTime,
-				RemoteHost:   loggedInInfo[4],
-			})
-		}
+
+	// ExecuteWithErrorAndContext, not ExecuteWithContext: the latter
+	// returns err.Error() in place of stdout, and `exec: "who":
+	// executable file not found in $PATH` splits into 8 fields - enough
+	// to satisfy the field check below and be parsed into a user named
+	// "exec:" logged in from "not". A missing who(1) must yield no users,
+	// not an invented one.
+	output, err := exec.ExecuteWithErrorAndContext(ctx, "who")
+	if err != nil {
+		return
 	}
+
+	system.LoggedInUsers = parseWhoOutput(output)
+}
+
+// parseWhoOutput parses who(1)'s columns: NAME LINE TIME COMMENT, where
+// TIME is two fields (date and time) and COMMENT holds the remote host.
+// Lines with too few fields are skipped - who prints a header on some
+// systems, and the comment column is absent for local logins.
+func parseWhoOutput(output string) []User {
+	users := []User{}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+		loggedInTime, _ := time.Parse("2006-01-02 15:04", fields[2]+" "+fields[3])
+		users = append(users, User{
+			Username:     fields[0],
+			LoggedInTime: loggedInTime,
+			RemoteHost:   fields[4],
+		})
+	}
+	return users
 }

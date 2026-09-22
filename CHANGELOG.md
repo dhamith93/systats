@@ -5,7 +5,14 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
-Nothing yet
+### Fixed
+- `GetSystem` invented a logged-in user when `who(1)` wasn't installed.
+  It read the command's output via `exec.Execute`, which returns
+  `err.Error()` in place of stdout - and `exec: "who": executable file
+  not found in $PATH` splits into 8 whitespace-separated fields, enough
+  to pass the column check and be parsed into a `User` named `exec:`
+  logged in from host `not`. `LoggedInUsers` is now empty when the
+  command fails, which is what a distroless or minimal image will hit.
 
 ## [v0.4.0] - 2026-09-22
 
