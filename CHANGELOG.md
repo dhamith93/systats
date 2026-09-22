@@ -5,7 +5,42 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- **`Memory` and `Swap` size fields are now `float64`** (`Total`, `Used`,
+  `Free`, `Available`). As integers the larger units were close to useless:
+  4 GiB of RAM reported as `3 GB`, discarding 21% of the value, and any
+  partition under 1 GiB reported `0`. `GetMemory(Gigabyte).Total` now reads
+  e.g. `15.56` rather than `15`. `Disk` keeps integer fields - its values are
+  large enough that truncation is negligible.
+- **Memory and swap values in `Megabyte` and `Kilobyte` have changed**, because
+  the conversions were wrong. All units are now consistently binary -
+  `Kilobyte` is KiB, `Megabyte` is MiB, `Gigabyte` is GiB - matching what
+  `free -m`, `df -h` and `top` report, and matching what `Disk.Convert`
+  already did. Concretely, for a host with `MemTotal: 16315340 kB`,
+  `GetMemory(Megabyte).Total` goes from `16315` to `15932` and
+  `GetMemory(Kilobyte).Total` from `16706908` to `16315340`. A container run
+  with `-m 512m` now correctly reports `512` rather than `524`.
+- `GetTopProcesses` returns an error for an unrecognized sort order instead of
+  silently sorting by CPU, so a typo like `"memroy"` is no longer a
+  successful-looking call. An empty string still means CPU.
+
+### Added
+- `SortByCPU` and `SortByMemory` constants for `GetTopProcesses` - the sort
+  order was previously an undocumented magic string.
+- `GetMemory` and `GetSwap` now accept `Byte` and `Gigabyte`. Both constants
+  were already exported but every call using them returned
+  `"B is not supported"`.
+
+### Fixed
+- `internal/unitconv.KibToMB` mixed decimal and binary arithmetic (it
+  multiplied by 1.024 to reach decimal KB, then divided by a binary 1024),
+  making every megabyte figure roughly 2.4% wrong - 512 MiB reported as 524,
+  which is neither 512 MiB nor 536 MB. `KibToGB` had the same fault and no
+  callers. The package had no tests at all, which is how this survived; it's
+  now at 100% coverage.
+- The first four README examples called methods on the package name
+  (`systats.GetSystem()` rather than `syStats.GetSystem()`) and so did not
+  compile. Every example in the README is now compile-checked.
 
 ## [v0.3.0] - 2026-09-22
 
