@@ -75,6 +75,9 @@ type SyStats struct {
 	// SysClassNetPath is the sysfs directory holding per-interface
 	// state and Rx/Tx counters.
 	SysClassNetPath string
+	// PressurePath is the directory holding the kernel's Pressure Stall
+	// Information files (cpu, memory, io).
+	PressurePath string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode CPUMode
@@ -126,6 +129,7 @@ func New() SyStats {
 		NetSNMPPath:     "/proc/net/snmp",
 		NetNetstatPath:  "/proc/net/netstat",
 		SysClassNetPath: "/sys/class/net",
+		PressurePath:    "/proc/pressure",
 		ProcessCPUMode:  CPUUsageInstant,
 		ContainerAware:  false,
 		CgroupRootPath:  "/sys/fs/cgroup",
@@ -284,6 +288,22 @@ func (systats *SyStats) EstablishedTCPConnCount(procName string) int {
 // count won't show.
 func (systats *SyStats) GetTCPConnectionStates() (TCPStates, error) {
 	return withRecover(func() (TCPStates, error) { return getTCPConnectionStates(systats) })
+}
+
+// GetPressure returns Pressure Stall Information from /proc/pressure:
+// how much time tasks spent stalled waiting on CPU, memory and I/O.
+//
+// This is the metric that answers "is this box saturated" - unlike load
+// average or utilization, which can't distinguish a machine that's busy
+// from one that's thrashing. Needs kernel 4.20+ with CONFIG_PSI=y; check
+// Pressure.Available rather than reading zeros as real, since an older
+// kernel is a normal condition rather than an error.
+//
+// With ContainerAware set, reports the calling process's own cgroup v2
+// pressure instead of the host's (cgroup v1 has no PSI equivalent, and
+// falls back to host-wide).
+func (systats *SyStats) GetPressure() (Pressure, error) {
+	return withRecover(func() (Pressure, error) { return getPressure(systats) })
 }
 
 // GetProtocolStats returns per-protocol network counters from

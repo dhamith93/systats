@@ -149,6 +149,30 @@ Notes:
 * Discard counters need kernel 4.18+ and flush counters 5.5+ - check `HasDiscardStats`/`HasFlushStats` before reading zeros as real.
 * `IOInProgress` is the only gauge; everything else is monotonic.
 
+### Pressure (PSI)
+
+How much time tasks spent stalled waiting on CPU, memory and I/O, from `/proc/pressure`.
+
+```go
+func main() {
+	syStats := systats.New()
+	p, err := syStats.GetPressure()
+
+	if p.Available && p.Memory.Some.Avg60 > 10 {
+		// more than 10% of the last minute spent waiting on memory
+	}
+}
+```
+
+This is the metric that answers *is this box actually saturated* - load average and CPU% can't tell a machine that's busy from one that's thrashing. `Some` is the share of time at least one task was stalled (early warning); `Full` is the share where nothing ran at all, which is what correlates with visible slowness.
+
+Notes:
+
+* Needs kernel 4.20+ with `CONFIG_PSI=y`, and some distros want `psi=1` on the kernel command line. Check `Available` - an older kernel isn't an error, so the zeros would otherwise look real.
+* `/proc/pressure/cpu` has no `full` line on most kernels. Check `FullAvailable` per resource.
+* `Avg10`/`Avg60`/`Avg300` are percentages; `Total` is cumulative microseconds and is the field to diff between polls.
+* With `ContainerAware`, reports your own cgroup v2 pressure instead of the host's. cgroup v1 has no PSI, so it falls back host-wide - check `Limited`.
+
 ### Networks
 
 Interface info and usage info

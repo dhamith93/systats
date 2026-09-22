@@ -111,6 +111,22 @@ func main() {
 	data.Sections = append(data.Sections, timedCollect("GetNetworks", func() (any, error) { return syStats.GetNetworks() }))
 	data.Sections = append(data.Sections, timedCollect("GetTCPConnectionStates", func() (any, error) { return syStats.GetTCPConnectionStates() }))
 	data.Sections = append(data.Sections, timedCollect("GetProtocolStats", func() (any, error) { return syStats.GetProtocolStats() }))
+	data.Sections = append(data.Sections, timedCollect("GetPressure", func() (any, error) { return syStats.GetPressure() }))
+
+	// PSI needs kernel 4.20+ with CONFIG_PSI=y, so surface availability as
+	// its own row - all-zero pressure and no-PSI-at-all look identical in
+	// the JSON otherwise. Compare against `cat /proc/pressure/cpu`.
+	data.Checks = append(data.Checks, timedCheck("Pressure stall info available", func() string {
+		p, err := syStats.GetPressure()
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		if !p.Available {
+			return "false (kernel has no /proc/pressure - needs 4.20+ with CONFIG_PSI=y)"
+		}
+		return fmt.Sprintf("true (cpu some avg10=%.2f, memory some avg10=%.2f, io some avg10=%.2f)",
+			p.CPU.Some.Avg10, p.Memory.Some.Avg10, p.IO.Some.Avg10)
+	}))
 
 	// Same calls again with cgroup awareness on, so the report shows
 	// host-wide vs container-relative numbers side by side. Limited/

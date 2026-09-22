@@ -27,6 +27,16 @@ All notable changes to this project are documented here, following the
   818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
+- **`GetPressure()`** - Pressure Stall Information from `/proc/pressure`:
+  how much time tasks spent stalled on CPU, memory and I/O. This is the
+  metric that distinguishes a machine that's busy from one that's
+  thrashing, which neither load average nor utilization can. `Some` is the
+  share of time at least one task was stalled; `Full` is the share where
+  nothing ran at all. Needs kernel 4.20+ with `CONFIG_PSI=y` - check
+  `Available` rather than reading the zeros as real, and `FullAvailable`
+  per resource since `/proc/pressure/cpu` has no `full` line on most
+  kernels. Honors `ContainerAware` via cgroup v2 (v1 has no PSI and falls
+  back host-wide). Overridable via `SyStats.PressurePath`.
 - **Documented the concurrency contract.** A `SyStats` is safe for
   concurrent use once configured - no method writes to its receiver. The
   configuration fields have no synchronization, so they must be set before
