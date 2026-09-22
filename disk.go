@@ -20,13 +20,18 @@ type Disk struct {
 	Time       int64      `json:"time"`
 }
 
-// DiskUsage holds information on single disk usage information
+// DiskUsage holds information on single disk usage information.
+//
+// The sizes are float64 for the same reason Memory's are: as integers the
+// larger units discard too much to be usable. A 512 MiB partition converted
+// to Gigabyte truncated to 0, and converting away from Byte and back could
+// not return the original value.
 type DiskUsage struct {
-	Size      uint64 `json:"size"`
-	Used      uint64 `json:"used"`
-	Available uint64 `json:"available"`
-	Usage     string `json:"usage"`
-	Unit      string `json:"unit"`
+	Size      float64 `json:"size"`
+	Used      float64 `json:"used"`
+	Available float64 `json:"available"`
+	Usage     string  `json:"usage"`
+	Unit      string  `json:"unit"`
 }
 
 // InodeUsage holds information on single disk inode usage
@@ -91,10 +96,12 @@ func getDisks(systats *SyStats) ([]Disk, error) {
 			FileSystem: m.device,
 			Type:       m.fsType,
 			MountedOn:  m.mountPoint,
+			// The byte figures stay integral up to here so usagePercent
+			// matches df exactly; float64 starts at the API boundary.
 			Usage: DiskUsage{
-				Size:      size,
-				Used:      used,
-				Available: available,
+				Size:      float64(size),
+				Used:      float64(used),
+				Available: float64(available),
 				Usage:     usagePercent(used, available),
 				Unit:      Byte,
 			},

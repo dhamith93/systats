@@ -5,7 +5,13 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
-Additive - no existing call site changes.
+### Changed
+- **`DiskUsage` size fields are now `float64`** (`Size`, `Used`,
+  `Available`), matching `Memory` and `Swap`. As integers, `Disk.Convert`
+  truncated on every step: a 512 MiB partition converted to `Gigabyte`
+  reported `0`, and a bytes -> `Gigabyte` -> bytes round trip on a 500 GB
+  disk returned 499289948160 instead of 500107862016, silently losing
+  818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
 - **`WithContext` variants for the seven methods that can block**:

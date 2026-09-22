@@ -463,32 +463,72 @@ func TestDiskConvert(t *testing.T) {
 			Unit:      systats.Byte,
 		},
 	}
+	// Written as exact divisions rather than decimal literals: every
+	// divisor is a power of two, so these are exact in float64. As
+	// integers these truncated to 112162 / 102607 / 3814.
 	disk.Convert(systats.Megabyte)
-	if disk.Usage.Size != 112162 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Size, 112162)
+	if want := 117610516480.0 / 1024 / 1024; disk.Usage.Size != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Size, want)
 		return
 	}
-	if disk.Usage.Used != 102607 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Used, 102607)
+	if want := 107592122368.0 / 1024 / 1024; disk.Usage.Used != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Used, want)
 		return
 	}
-	if disk.Usage.Available != 3814 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Available, 3814)
+	if want := 3999989760.0 / 1024 / 1024; disk.Usage.Available != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Available, want)
 		return
 	}
 
 	disk.Convert(systats.Gigabyte)
-	if disk.Usage.Size != 109 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Size, 109)
+	if want := 117610516480.0 / 1024 / 1024 / 1024; disk.Usage.Size != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Size, want)
 		return
 	}
-	if disk.Usage.Used != 100 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Used, 100)
+	if want := 107592122368.0 / 1024 / 1024 / 1024; disk.Usage.Used != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Used, want)
 		return
 	}
-	if disk.Usage.Available != 3 {
-		t.Errorf("Got invalid value. got: %d, want: %d", disk.Usage.Available, 3)
+	if want := 3999989760.0 / 1024 / 1024 / 1024; disk.Usage.Available != want {
+		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Available, want)
 		return
+	}
+}
+
+// TestDiskConvertRoundTrips is the regression test for the integer
+// truncation: as uint64 these fields lost 818 MB on a B -> GB -> B trip.
+func TestDiskConvertRoundTrips(t *testing.T) {
+	const sizeBytes = 500107862016.0
+
+	disk := systats.Disk{
+		Usage: systats.DiskUsage{
+			Size: sizeBytes,
+			Unit: systats.Byte,
+		},
+	}
+
+	disk.Convert(systats.Gigabyte)
+	disk.Convert(systats.Byte)
+
+	if disk.Usage.Size != sizeBytes {
+		t.Errorf("round trip B -> GB -> B = %v, want %v (lost %v bytes)",
+			disk.Usage.Size, sizeBytes, sizeBytes-disk.Usage.Size)
+	}
+}
+
+// A partition smaller than the target unit used to report 0.
+func TestDiskConvertKeepsSmallValues(t *testing.T) {
+	disk := systats.Disk{
+		Usage: systats.DiskUsage{
+			Size: 512 * 1024 * 1024, // 512 MiB
+			Unit: systats.Byte,
+		},
+	}
+
+	disk.Convert(systats.Gigabyte)
+
+	if want := 0.5; disk.Usage.Size != want {
+		t.Errorf("512 MiB in GiB = %v, want %v", disk.Usage.Size, want)
 	}
 }
 

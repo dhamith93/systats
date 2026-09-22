@@ -111,7 +111,7 @@ MB  total=15932.95
 GB  total=15.56
 ```
 
-(`Disk` sizes are integers - disk values are large enough that truncation doesn't matter.)
+`Disk` sizes are `float64` too, so `Disk.Convert` round-trips exactly and a partition smaller than the target unit doesn't report `0`. Inode counts stay integers.
 
 ### Disks
 
