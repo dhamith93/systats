@@ -4,8 +4,6 @@ import (
 	"errors"
 	"os"
 	"strings"
-
-	"github.com/dhamith93/systats/internal/logger"
 )
 
 // ReadFile read from given file
@@ -24,15 +22,6 @@ func ReadFileWithError(path string) (string, error) {
 	}
 
 	return ReadFile(path), nil
-}
-
-// WriteFile write to given file
-func WriteFile(path string, input string) {
-	s := []byte(input)
-	err := os.WriteFile(path, s, 0644)
-	if err != nil {
-		logger.Log("Error", err.Error())
-	}
 }
 
 // IsFile check if path exists and is a regular file (not a directory)
