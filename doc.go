@@ -1,7 +1,6 @@
 // Package systats collects Linux system statistics: CPU, memory, swap,
-// disks, network interfaces, running processes, and service status.
-// It reads directly from /proc and /sys wherever possible instead of
-// shelling out to external binaries.
+// disks, network interfaces, pressure stall information, temperatures,
+// running processes, and service status.
 //
 // Basic usage:
 //
@@ -10,6 +9,25 @@
 //
 // This package is Linux-only - most Get* methods depend on /proc, /sys,
 // or systemd/SysV service tooling that don't exist on other platforms.
+//
+// # Subprocesses
+//
+// No stats call spawns a subprocess: CPU, memory, swap, disk, disk I/O,
+// network, pressure, temperature and process data all come from reading
+// /proc and /sys directly. That means they work on a minimal image with
+// no ps, df or ip installed.
+//
+// Two calls are the exception, and will fail on such an image:
+//
+//   - IsServiceRunning runs "systemctl is-active", falling back to
+//     "service <name> status". Neither exists in a distroless container.
+//   - GetSystem runs who(1) to fill in System.LoggedInUsers. The rest of
+//     the System fields are read from /proc and /etc, so they are still
+//     populated when who is missing - only the user list comes back
+//     empty.
+//
+// Both honor the context passed to their WithContext variants, and are
+// bounded by a 5s timeout otherwise.
 //
 // # Concurrency
 //

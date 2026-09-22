@@ -67,6 +67,10 @@ func main() {
 }
 ```
 
+`UpTime` is human-readable (`"72h3m0s"`); use `UpTimeSeconds` for arithmetic.
+
+`LoggedInUsers` is the one field here that shells out - it runs `who`. Everything else comes from `/proc` and `/etc`, so on an image without `who` you still get the OS, hostname, kernel and boot time, just an empty user list.
+
 ### CPU
 
 CPU info and usage info (overall, and per core)
@@ -265,6 +269,8 @@ func main() {
 	}
 }
 ```
+
+This is the one call that depends on external tooling: it runs `systemctl is-active`, falling back to `service <name> status`. Neither exists in a distroless container, and on such an image this returns `false` for every service. Use `IsServiceRunningWithContext` if you need to tell "stopped" from "couldn't check" - it returns the error that the `bool` form discards.
 
 ### Running processes
 
