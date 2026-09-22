@@ -87,7 +87,10 @@ func main() {
 	data.Sections = append(data.Sections, timedCollect("GetMemory", func() (any, error) { return syStats.GetMemory(systats.Megabyte) }))
 	data.Sections = append(data.Sections, timedCollect("GetSwap", func() (any, error) { return syStats.GetSwap(systats.Megabyte) }))
 	data.Sections = append(data.Sections, timedCollect("GetDisks", func() (any, error) { return syStats.GetDisks() }))
+	data.Sections = append(data.Sections, timedCollect("GetDiskIO", func() (any, error) { return syStats.GetDiskIO() }))
 	data.Sections = append(data.Sections, timedCollect("GetNetworks", func() (any, error) { return syStats.GetNetworks() }))
+	data.Sections = append(data.Sections, timedCollect("GetTCPConnectionStates", func() (any, error) { return syStats.GetTCPConnectionStates() }))
+	data.Sections = append(data.Sections, timedCollect("GetProtocolStats", func() (any, error) { return syStats.GetProtocolStats() }))
 
 	// Same calls again with cgroup awareness on, so the report shows
 	// host-wide vs container-relative numbers side by side. Limited/
@@ -139,6 +142,12 @@ func main() {
 	syStats.ProcessCPUMode = systats.CPUUsageAverage
 	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(cpu, average)", func() (any, error) { return syStats.GetTopProcesses(5, "cpu") }))
 	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(memory, average)", func() (any, error) { return syStats.GetTopProcesses(5, "memory") }))
+
+	syStats.ProcessCPUMode = systats.CPUUsageAverage
+	data.Sections = append(data.Sections, timedCollect("GetProcess(self, average)", func() (any, error) {
+		return syStats.GetProcess(os.Getpid())
+	}))
+	syStats.ProcessCPUMode = systats.CPUUsageInstant
 
 	data.Checks = append(data.Checks, timedCheck("IsServiceRunning(\"cron\")", func() string {
 		return fmt.Sprintf("%v", syStats.IsServiceRunning("cron"))
