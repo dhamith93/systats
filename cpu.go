@@ -26,12 +26,24 @@ type CPU struct {
 	Load5  float64 `json:"load5"`
 	Load15 float64 `json:"load15"`
 	Model  string  `json:"model"`
-	// NoOfCores is always the host's physical core count, in every mode -
-	// see AllocatedCores for the cgroup's (possibly fractional) quota.
-	NoOfCores int    `json:"noOfCores"`
-	Freq      string `json:"freq"`
-	Cache     string `json:"cache"`
-	Time      int64  `json:"time"`
+	// NoOfCores is the host's logical CPU count - what nproc reports, and
+	// always equal to len(CoreAvg) when CoreAvg is populated. Always
+	// host-wide, in every mode; see AllocatedCores for the cgroup's
+	// (possibly fractional) quota.
+	NoOfCores int `json:"noOfCores"`
+	// PhysicalCores is the host's distinct physical core count across all
+	// sockets, counted from unique (physical id, core id) pairs. Many
+	// hypervisors report the same pair for every vCPU, which correctly
+	// yields 1 here - matching what lscpu shows on the same guest. Falls
+	// back to the logical count on architectures that don't publish
+	// topology (ARM, RISC-V, some containers).
+	PhysicalCores int `json:"physicalCores"`
+	// Sockets is the number of distinct physical packages, 1 when the
+	// architecture doesn't publish topology.
+	Sockets int    `json:"sockets"`
+	Freq    string `json:"freq"`
+	Cache   string `json:"cache"`
+	Time    int64  `json:"time"`
 	// Limited is true when SyStats.ContainerAware found a real cgroup
 	// CPU quota, in which case LoadAvg reflects usage relative to that
 	// quota (AllocatedCores) instead of the host's core count.
@@ -80,6 +92,10 @@ func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
 	elapsedSeconds := time.Since(start).Seconds()
 
 	processStatFileContents(&output, &statStr1, &statStr2)
+	// Captured before applyCgroupCPU, which nils CoreAvg in limited mode -
+	// this is the fallback logical-CPU count for architectures whose
+	// /proc/cpuinfo has no "processor" lines at all (e.g. s390x).
+	logicalFromStat := len(output.CoreAvg)
 	if systats.ContainerAware {
 		applyCgroupCPU(&output, cgInfo, cgUsage1, cgUsage2, cgOK1, cgOK2, elapsedSeconds)
 	}
@@ -89,7 +105,7 @@ func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
 		return output, err
 	}
 
-	processCPUInfoFileContent(&output, &cpuinfoStr)
+	processCPUInfoFileContent(&output, &cpuinfoStr, logicalFromStat)
 
 	loadAvgStr, err := fileops.ReadFileWithError(systats.LoadAvgPath)
 	if err != nil {
@@ -274,7 +290,12 @@ func processLoadAvgFileContent(output *CPU, content *string) error {
 	return nil
 }
 
-func processCPUInfoFileContent(output *CPU, content *string) {
+// processCPUInfoFileContent fills in the descriptive CPU fields and the
+// core counts. logicalFallback is used only when /proc/cpuinfo has no
+// "processor" lines at all (s390x uses a different layout, and some
+// minimal containers mask the file) - callers pass the count derived
+// from /proc/stat's per-CPU lines.
+func processCPUInfoFileContent(output *CPU, content *string, logicalFallback int) {
 	split := strings.Split(*content, "\n")
 
 	for _, line := range split {
@@ -293,11 +314,6 @@ func processCPUInfoFileContent(output *CPU, content *string) {
 			continue
 		}
 
-		if len(lineArr) > 3 && (lineArr[0]+lineArr[1] == "cpucores") {
-			output.NoOfCores, _ = strconv.Atoi(strings.TrimSpace(lineArr[3]))
-			continue
-		}
-
 		if len(lineArr) > 3 && (lineArr[0]+lineArr[1] == "cpuMHz") {
 			output.Freq = strings.TrimSpace(lineArr[3]) + " MHz"
 			continue
@@ -313,7 +329,82 @@ func processCPUInfoFileContent(output *CPU, content *string) {
 		}
 	}
 
+	topo := parseCPUTopology(*content)
+	if topo.logical == 0 {
+		topo.logical = logicalFallback
+		topo.physicalCores = logicalFallback
+		topo.sockets = 1
+	}
+	output.NoOfCores = topo.logical
+	output.PhysicalCores = topo.physicalCores
+	output.Sockets = topo.sockets
+
 	output.Time = time.Now().Unix()
+}
+
+// cpuTopology counts logical CPUs, distinct physical cores, and sockets
+// from /proc/cpuinfo. /proc/cpuinfo's "cpu cores" field is deliberately
+// not used: it reports physical cores *per socket*, so it's half the
+// real count on a dual-socket box, and on hybrid P+E-core parts it
+// describes neither core type correctly. Distinct (physical id, core id)
+// pairs are the only count that's right in every case.
+type cpuTopology struct {
+	logical       int
+	physicalCores int
+	sockets       int
+}
+
+type coreKey struct{ pkg, core string }
+
+func parseCPUTopology(content string) cpuTopology {
+	seenCores := map[coreKey]bool{}
+	seenPkgs := map[string]bool{}
+
+	logical := 0
+	var pkg, core string
+	var havePkg, haveCore bool
+
+	flush := func() {
+		if havePkg {
+			seenPkgs[pkg] = true
+			if haveCore {
+				seenCores[coreKey{pkg, core}] = true
+			}
+		}
+		pkg, core, havePkg, haveCore = "", "", false, false
+	}
+
+	for _, line := range strings.Split(content, "\n") {
+		// strings.Cut rather than Fields: values can be empty
+		// ("power management:"), which a field-count guard would drop.
+		k, v, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+		switch k {
+		case "processor":
+			flush() // close out the previous block
+			logical++
+		case "physical id":
+			pkg, havePkg = v, true
+		case "core id":
+			core, haveCore = v, true
+		}
+	}
+	flush() // close out the last block - there's no trailing "processor"
+
+	t := cpuTopology{logical: logical, physicalCores: len(seenCores), sockets: len(seenPkgs)}
+	// ARM, RISC-V, and some VMs/containers omit physical id and core id
+	// entirely. There's no topology to report, so treat every logical CPU
+	// as its own core on a single socket rather than reporting zero.
+	if t.physicalCores == 0 {
+		t.physicalCores = t.logical
+	}
+	if t.sockets == 0 && t.logical > 0 {
+		t.sockets = 1
+	}
+	return t
 }
 
 func processStatFileContents(output *CPU, statStr1 *string, statStr2 *string) {

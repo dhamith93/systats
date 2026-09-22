@@ -24,6 +24,7 @@ const (
 // SyStats holds information used to collect data
 type SyStats struct {
 	MeminfoPath     string
+	ProcPath        string
 	StatFilePath    string
 	CPUinfoFilePath string
 	VersionPath     string
@@ -31,6 +32,11 @@ type SyStats struct {
 	UptimePath      string
 	MountsPath      string
 	LoadAvgPath     string
+	DiskStatsPath   string
+	NetTCPPath      string
+	NetTCP6Path     string
+	NetSNMPPath     string
+	NetNetstatPath  string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode string
@@ -52,6 +58,7 @@ type SyStats struct {
 func New() SyStats {
 	return SyStats{
 		MeminfoPath:     "/proc/meminfo",
+		ProcPath:        "/proc",
 		StatFilePath:    "/proc/stat",
 		CPUinfoFilePath: "/proc/cpuinfo",
 		VersionPath:     "/proc/version",
@@ -59,6 +66,11 @@ func New() SyStats {
 		UptimePath:      "/proc/uptime",
 		MountsPath:      "/proc/mounts",
 		LoadAvgPath:     "/proc/loadavg",
+		DiskStatsPath:   "/proc/diskstats",
+		NetTCPPath:      "/proc/net/tcp",
+		NetTCP6Path:     "/proc/net/tcp6",
+		NetSNMPPath:     "/proc/net/snmp",
+		NetNetstatPath:  "/proc/net/netstat",
 		ProcessCPUMode:  CPUUsageInstant,
 		ContainerAware:  false,
 		CgroupRootPath:  "/sys/fs/cgroup",
@@ -111,8 +123,23 @@ func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, erro
 	return withRecover(func() ([]Process, error) { return getTopProcesses(systats, count, sort) })
 }
 
+// GetProcess looks up a single process by pid, returning an error if it
+// doesn't exist or can't be read. Like GetTopProcesses, it honors
+// ProcessCPUMode - which means the default instant mode costs a ~300ms
+// sampling window per call.
+func (systats *SyStats) GetProcess(pid int) (Process, error) {
+	return withRecover(func() (Process, error) { return getProcess(systats, pid) })
+}
+
 func (systats *SyStats) GetDisks() ([]Disk, error) {
 	return withRecover(func() ([]Disk, error) { return getDisks(systats) })
+}
+
+// GetDiskIO returns cumulative I/O counters per block device. The values
+// are counters since boot, not rates - poll twice and use
+// DiskIO.RatesSince to derive throughput, IOPS and utilization.
+func (systats *SyStats) GetDiskIO() ([]DiskIO, error) {
+	return withRecover(func() ([]DiskIO, error) { return getDiskIO(systats) })
 }
 
 func (systats *SyStats) IsPortOpen(port int) bool {
@@ -124,5 +151,20 @@ func (systats *SyStats) CanConnectExternal(url string) (bool, error) {
 }
 
 func (systats *SyStats) EstablishedTCPConnCount(procName string) int {
-	return establishedTCPConnCount(procName)
+	return establishedTCPConnCount(systats, procName)
+}
+
+// GetTCPConnectionStates counts every TCP socket in the caller's network
+// namespace by connection state, across IPv4 and IPv6. Useful for
+// spotting TIME_WAIT buildup or listen-queue problems that a per-process
+// count won't show.
+func (systats *SyStats) GetTCPConnectionStates() (TCPStates, error) {
+	return withRecover(func() (TCPStates, error) { return getTCPConnectionStates(systats) })
+}
+
+// GetProtocolStats returns per-protocol network counters from
+// /proc/net/snmp and /proc/net/netstat - TCP retransmits, UDP errors,
+// listen overflows and so on.
+func (systats *SyStats) GetProtocolStats() (ProtocolStats, error) {
+	return withRecover(func() (ProtocolStats, error) { return getProtocolStats(systats) })
 }
