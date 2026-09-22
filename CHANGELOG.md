@@ -5,6 +5,18 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
+Nothing yet
+
+## [v0.4.0] - 2026-09-22
+
+Adds `context.Context` support to every method that can block, two new
+metric sources (PSI and hwmon temperatures), and turns the stringly-typed
+unit and sort-order parameters into real types.
+
+Three things need attention when upgrading: `Unit`/`SortOrder`/`CPUMode`
+are now defined types, `DiskUsage` sizes are `float64`, and
+`Disk.Convert` returns an error. See **Changed** below.
+
 ### Changed
 - **`Unit`, `SortOrder` and `CPUMode` are now defined types** instead of
   bare strings. `GetMemory`/`GetSwap` take a `Unit`, `GetTopProcesses` a
