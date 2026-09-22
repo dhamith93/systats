@@ -5,6 +5,10 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
+Nothing yet
+
+## [v0.3.1] - 2026-09-22
+
 ### Changed
 - **`Memory` and `Swap` size fields are now `float64`** (`Total`, `Used`,
   `Free`, `Available`). As integers the larger units were close to useless:
