@@ -11,6 +11,15 @@ One import, one struct, one dependency (`golang.org/x/sys`). What makes it diffe
 * **No subprocess for any stats call.** Everything comes from `/proc` and `/sys` directly, so it works on a minimal image where `ps` and `df` aren't installed. Two calls are the exception and do shell out: `IsServiceRunning` (`systemctl`) and `GetSystem`'s logged-in user list (`who`).
 * **Every path is a struct field.** `ProcPath`, `SysClassNetPath`, `PressurePath` and the rest are injectable per-instance, not a global `HOST_PROC` env var - so tests stay parallel-safe and you can point it at a fixture tree.
 
+## See it
+
+[`example/`](example/) renders everything below as a single-page HTML dashboard - gauges, bars, and a container banner when a cgroup limit is detected. No JavaScript and no CDN, so the file works offline once you've copied it off the server.
+
+```bash
+go run ./example              # writes example/dashboard.html
+go run ./example -serve :8080 # or watch it live
+```
+
 ## When to use something else
 
 This is deliberately narrow. Reach for:

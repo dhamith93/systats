@@ -3,6 +3,17 @@
 All notable changes to this project are documented here, following the
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [Unreleased]
+
+### Added
+- **`example/`** - a single-page HTML dashboard built on the library,
+  either written as a snapshot or served live with `-serve`. Every gauge
+  is inline SVG computed in Go, so the page has no scripts and no external
+  assets and works offline once copied off a host. It doubles as worked
+  documentation for `ContainerAware`, `RatesSince`, the `WithContext`
+  variants, the concurrency contract, and the `Available`/`Accessible`
+  degradation flags. No library API changed.
+
 ## [v0.4.1] - 2026-09-22
 
 ### Fixed

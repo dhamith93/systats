@@ -24,3 +24,7 @@ vendor/
 build_test/systats-test*
 build_test/report.html
 build_test/*.prof
+
+# Example dashboard output and cross-compiled binary
+example/dashboard.html
+example/systats-dashboard-linux
