@@ -11,12 +11,20 @@
   --muted: #6b7280; --faint: #f0f1f4; --accent: #3b82c4; --track: #e8eaee;
   --shadow: 0 1px 2px rgba(16,18,22,.06), 0 1px 8px rgba(16,18,22,.04);
 }
+/* Dark palette, defined once and applied two ways: to viewers whose OS
+   asks for dark (unless they've explicitly chosen light), and to anything
+   that stamps data-theme="dark" on the root. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #14161a; --panel: #1c1f24; --line: #2a2e35; --ink: #e8eaed;
     --muted: #9aa1ab; --faint: #22262c; --accent: #5a9fd4; --track: #2a2e35;
     --shadow: 0 1px 2px rgba(0,0,0,.4);
   }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a; --panel: #1c1f24; --line: #2a2e35; --ink: #e8eaed;
+  --muted: #9aa1ab; --faint: #22262c; --accent: #5a9fd4; --track: #2a2e35;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
 }
 * { box-sizing: border-box; }
 body {
