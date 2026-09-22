@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -116,8 +117,10 @@ func readAsString(path string) string {
 	return strings.TrimSpace(result)
 }
 
-func isPortOpen(port int) bool {
-	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+var dialer = &net.Dialer{}
+
+func isPortOpen(ctx context.Context, port int) bool {
+	conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return false
 	}
@@ -127,8 +130,12 @@ func isPortOpen(port int) bool {
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-func canConnect(url string) (bool, error) {
-	resp, err := httpClient.Get(url)
+func canConnect(ctx context.Context, url string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false, err
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return false, err
 	}

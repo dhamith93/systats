@@ -5,7 +5,44 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
-Nothing yet
+Additive - no existing call site changes.
+
+### Added
+- **`WithContext` variants for the seven methods that can block**:
+  `GetCPUWithContext`, `GetTopProcessesWithContext`,
+  `GetProcessWithContext`, `GetSystemWithContext`,
+  `IsServiceRunningWithContext`, `CanConnectExternalWithContext` and
+  `IsPortOpenWithContext`. These are the calls that sample over a time
+  window, shell out, or touch the network; the plain forms remain and
+  delegate with `context.Background()`. Previously `GetCPU` would hold a
+  goroutine for its full 300ms window even after the caller had gone away.
+
+  The other methods deliberately have no variant - they only read local
+  files under `/proc` and `/sys`, and a read already in flight can't be
+  interrupted in Go, so a `ctx` parameter would advertise a cancellation
+  that couldn't happen.
+- **`SyStats.CPUSampleWindow`** - how far apart the two CPU samples are
+  taken, 300ms by default. It's the dominant cost of `GetCPU`, and of
+  `GetTopProcesses`/`GetProcess` in `CPUUsageInstant` mode, so shortening
+  it trades accuracy for latency. A context can abort a sample but can't
+  shorten it, which is why this knob exists alongside. Zero falls back to
+  the default, so a hand-constructed `SyStats{}` doesn't sample over no
+  time at all.
+- **`IsServiceRunningWithContext` returns `(bool, error)`**, unlike
+  `IsServiceRunning`'s bare `bool`. A wedged `systemctl` (bounded at 5s) or
+  a missing binary previously reported the service as *stopped*: `false,
+  nil` now means genuinely stopped, `false, err` means the check failed.
+- Context-aware variants in the `exec` package (`ExecuteWithContext`,
+  `ExecuteWithErrorAndContext`, and the pipe equivalents). The 5s default
+  timeout still applies as a backstop when the passed context has no
+  deadline of its own.
+
+### Fixed
+- `isServiceRunning` now decides on the tool's *output* rather than its exit
+  code. `systemctl is-active` exits non-zero for an inactive service just as
+  it does for a genuine failure, so the exit code alone could not tell those
+  apart; a tool that printed a verdict has answered the question regardless
+  of how it exited.
 
 ## [v0.3.1] - 2026-09-22
 

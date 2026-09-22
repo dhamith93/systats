@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/user"
@@ -58,10 +59,7 @@ type ProcessIO struct {
 	Accessible bool `json:"accessible"`
 }
 
-const (
-	clockTicksPerSec = 100
-	cpuSampleWindow  = 300 * time.Millisecond
-)
+const clockTicksPerSec = 100
 
 // procStat holds the fields read from /proc/<pid>/stat: comm/state/ppid,
 // utime/stime (cumulative CPU ticks), num_threads, and starttime (ticks
@@ -87,7 +85,7 @@ type procCandidate struct {
 	memUsage float64
 }
 
-func getTopProcesses(systats *SyStats, count int, sortBy string) ([]Process, error) {
+func getTopProcesses(ctx context.Context, systats *SyStats, count int, sortBy string) ([]Process, error) {
 	if err := validateSortBy(sortBy); err != nil {
 		return nil, err
 	}
@@ -104,9 +102,9 @@ func getTopProcesses(systats *SyStats, count int, sortBy string) ([]Process, err
 
 	var candidates []procCandidate
 	if systats.ProcessCPUMode == CPUUsageAverage {
-		candidates, err = collectCandidatesAverage(systats, pids, totalMemKB)
+		candidates, err = collectCandidatesAverage(ctx, systats, pids, totalMemKB)
 	} else {
-		candidates, err = collectCandidatesInstant(systats, pids, totalMemKB)
+		candidates, err = collectCandidatesInstant(ctx, systats, pids, totalMemKB)
 	}
 	if err != nil {
 		return nil, err
@@ -138,7 +136,7 @@ func getTopProcesses(systats *SyStats, count int, sortBy string) ([]Process, err
 // which skips processes it can't read, this returns an error when
 // /proc/<pid>/stat is unreadable - a targeted lookup of a pid that isn't
 // there should say so rather than return an empty result.
-func getProcess(systats *SyStats, pid int) (Process, error) {
+func getProcess(ctx context.Context, systats *SyStats, pid int) (Process, error) {
 	totalMemKB, err := totalMemoryKB(systats.MeminfoPath)
 	if err != nil {
 		return Process{}, err
@@ -157,13 +155,15 @@ func getProcess(systats *SyStats, pid int) (Process, error) {
 		cpuUsage = averageCPUPercent(s.utime+s.stime, s.starttime, uptimeSeconds)
 	} else {
 		// Same two-sample window GetTopProcesses uses, so this call also
-		// costs at least cpuSampleWindow.
+		// costs at least CPUSampleWindow.
 		start := time.Now()
 		s1, err := readProcStat(systats.ProcPath, pid)
 		if err != nil {
 			return Process{}, err
 		}
-		time.Sleep(cpuSampleWindow)
+		if err := sleepCtx(ctx, systats.cpuSampleWindow()); err != nil {
+			return Process{}, err
+		}
 		s2, err := readProcStat(systats.ProcPath, pid)
 		if err != nil {
 			return Process{}, err
@@ -313,18 +313,25 @@ func parseProcIO(content string) ProcessIO {
 }
 
 // collectCandidatesInstant computes CPU usage as an instantaneous value:
-// sample every pid, sleep cpuSampleWindow, sample again, and use the
+// sample every pid, sleep CPUSampleWindow, sample again, and use the
 // delta over actual elapsed wall time. Matches `top`'s default behavior;
-// costs at least cpuSampleWindow in latency.
-func collectCandidatesInstant(systats *SyStats, pids []int, totalMemKB uint64) ([]procCandidate, error) {
+// costs at least CPUSampleWindow in latency.
+func collectCandidatesInstant(ctx context.Context, systats *SyStats, pids []int, totalMemKB uint64) ([]procCandidate, error) {
 	start := time.Now()
 	sample1 := sampleProcStats(systats.ProcPath, pids)
-	time.Sleep(cpuSampleWindow)
+	if err := sleepCtx(ctx, systats.cpuSampleWindow()); err != nil {
+		return nil, err
+	}
 	sample2 := sampleProcStats(systats.ProcPath, pids)
 	elapsedSeconds := time.Since(start).Seconds()
 
 	candidates := []procCandidate{}
 	for _, pid := range pids {
+		// On a busy host this loop is two /proc reads per pid across
+		// hundreds of pids, so it is worth being able to bail out of.
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		s2, ok := sample2[pid]
 		if !ok {
 			continue // process exited during sampling
@@ -355,7 +362,7 @@ func collectCandidatesInstant(systats *SyStats, pids []int, totalMemKB uint64) (
 // collectCandidatesAverage computes CPU usage as a lifetime average since
 // each process started (total CPU time / time since start), matching
 // `ps`'s default %cpu. Single pass, no sampling wait.
-func collectCandidatesAverage(systats *SyStats, pids []int, totalMemKB uint64) ([]procCandidate, error) {
+func collectCandidatesAverage(ctx context.Context, systats *SyStats, pids []int, totalMemKB uint64) ([]procCandidate, error) {
 	uptimeSeconds, err := systemUptimeSeconds(systats.UptimePath)
 	if err != nil {
 		return nil, err
@@ -365,6 +372,9 @@ func collectCandidatesAverage(systats *SyStats, pids []int, totalMemKB uint64) (
 
 	candidates := []procCandidate{}
 	for _, pid := range pids {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		s, ok := stats[pid]
 		if !ok {
 			continue // process exited

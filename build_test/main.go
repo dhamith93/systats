@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -185,8 +186,61 @@ func main() {
 	}))
 	syStats.ProcessCPUMode = systats.CPUUsageInstant
 
+	// Cancellation: an already-cancelled context must abort well before the
+	// sampling window, rather than the caller waiting it out.
+	data.Checks = append(data.Checks, timedCheck("GetCPUWithContext aborts on a cancelled context", func() string {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		start := time.Now()
+		_, err := syStats.GetCPUWithContext(ctx)
+		elapsed := time.Since(start)
+		if err == nil {
+			return "false - BUG: a cancelled context still returned a result"
+		}
+		if elapsed >= 300*time.Millisecond {
+			return fmt.Sprintf("false - BUG: took %v, the full sample window", elapsed)
+		}
+		return fmt.Sprintf("true (aborted in %v with: %s)", elapsed.Round(time.Microsecond), err)
+	}))
+
+	data.Checks = append(data.Checks, timedCheck("GetTopProcessesWithContext honors a 50ms deadline", func() string {
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		_, err := syStats.GetTopProcessesWithContext(ctx, 5, systats.SortByCPU)
+		elapsed := time.Since(start)
+		if err == nil {
+			return fmt.Sprintf("false - BUG: ran to completion in %v, ignoring the deadline", elapsed)
+		}
+		return fmt.Sprintf("true (aborted in %v with: %s)", elapsed.Round(time.Millisecond), err)
+	}))
+
+	// A shortened window should be visibly cheaper than the 300ms default.
+	data.Checks = append(data.Checks, timedCheck("CPUSampleWindow=50ms is honored", func() string {
+		fast := systats.New()
+		fast.CPUSampleWindow = 50 * time.Millisecond
+		start := time.Now()
+		if _, err := fast.GetCPU(); err != nil {
+			return "error: " + err.Error()
+		}
+		elapsed := time.Since(start)
+		if elapsed >= 300*time.Millisecond {
+			return fmt.Sprintf("false - BUG: took %v despite a 50ms window", elapsed)
+		}
+		return fmt.Sprintf("true (%v, vs the %v default)", elapsed.Round(time.Millisecond), 300*time.Millisecond)
+	}))
+
 	data.Checks = append(data.Checks, timedCheck("IsServiceRunning(\"cron\")", func() string {
 		return fmt.Sprintf("%v", syStats.IsServiceRunning("cron"))
+	}))
+	// The context variant surfaces the error the bool-only form discards,
+	// so a failed check is distinguishable from a stopped service.
+	data.Checks = append(data.Checks, timedCheck("IsServiceRunningWithContext(\"cron\")", func() string {
+		running, err := syStats.IsServiceRunningWithContext(context.Background(), "cron")
+		if err != nil {
+			return fmt.Sprintf("%v (check failed: %s)", running, err)
+		}
+		return fmt.Sprintf("%v (check succeeded)", running)
 	}))
 	data.Checks = append(data.Checks, timedCheck("IsPortOpen(22)", func() string {
 		return fmt.Sprintf("%v", syStats.IsPortOpen(22))

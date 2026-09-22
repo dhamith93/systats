@@ -19,54 +19,63 @@ func withLocale(cmd *exec.Cmd) {
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 }
 
-// Execute execs the command with params returns output or error msg
-func Execute(command string, params ...string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultExecTimeout)
+// run is the single place a subprocess is actually started. defaultExecTimeout
+// is applied on top of whatever the caller's context already carries, so it
+// stays a backstop against a wedged binary while an earlier caller deadline
+// still wins.
+func run(ctx context.Context, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultExecTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, command, params...)
+	cmd := exec.CommandContext(ctx, name, args...)
 	withLocale(cmd)
 	stdout, err := cmd.Output()
+	return string(stdout), err
+}
+
+// Execute execs the command with params returns output or error msg
+func Execute(command string, params ...string) string {
+	return ExecuteWithContext(context.Background(), command, params...)
+}
+
+// ExecuteWithContext is Execute, bounded by ctx.
+func ExecuteWithContext(ctx context.Context, command string, params ...string) string {
+	stdout, err := run(ctx, command, params...)
 	if err != nil {
 		return err.Error()
 	}
-	return string(stdout)
+	return stdout
 }
 
 // ExecuteWithPipe execs commands with pipe returns output or error msg
 func ExecuteWithPipe(command string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultExecTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
-	withLocale(cmd)
-	stdout, err := cmd.Output()
+	return ExecuteWithPipeAndContext(context.Background(), command)
+}
+
+// ExecuteWithPipeAndContext is ExecuteWithPipe, bounded by ctx.
+func ExecuteWithPipeAndContext(ctx context.Context, command string) string {
+	stdout, err := run(ctx, "bash", "-c", command)
 	if err != nil {
 		return err.Error()
 	}
-	return string(stdout)
+	return stdout
 }
 
 // ExecuteWithError execs the command with params returns output and error
 func ExecuteWithError(command string, params ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultExecTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, command, params...)
-	withLocale(cmd)
-	stdout, err := cmd.Output()
-	if err != nil {
-		return string(stdout), err
-	}
-	return string(stdout), nil
+	return ExecuteWithErrorAndContext(context.Background(), command, params...)
+}
+
+// ExecuteWithErrorAndContext is ExecuteWithError, bounded by ctx.
+func ExecuteWithErrorAndContext(ctx context.Context, command string, params ...string) (string, error) {
+	return run(ctx, command, params...)
 }
 
 // ExecuteWithPipeAndError execs commands with pipe returns output and error
 func ExecuteWithPipeAndError(command string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultExecTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
-	withLocale(cmd)
-	stdout, err := cmd.Output()
-	if err != nil {
-		return string(stdout), err
-	}
-	return string(stdout), nil
+	return ExecuteWithPipeAndErrorAndContext(context.Background(), command)
+}
+
+// ExecuteWithPipeAndErrorAndContext is ExecuteWithPipeAndError, bounded by ctx.
+func ExecuteWithPipeAndErrorAndContext(ctx context.Context, command string) (string, error) {
+	return run(ctx, "bash", "-c", command)
 }

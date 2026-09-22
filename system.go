@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"context"
 	"os"
 	"regexp"
 	"strconv"
@@ -30,7 +31,7 @@ type User struct {
 	LoggedInTime time.Time `json:"loggedInTime"`
 }
 
-func getSystem(systats *SyStats) (System, error) {
+func getSystem(ctx context.Context, systats *SyStats) (System, error) {
 	output := System{}
 
 	err := getOperatingSystem(&output, systats)
@@ -50,7 +51,7 @@ func getSystem(systats *SyStats) (System, error) {
 		return output, err
 	}
 
-	processLoggedInUsers(&output, systats)
+	processLoggedInUsers(ctx, &output, systats)
 	output.Time = time.Now().Unix()
 
 	return output, nil
@@ -103,9 +104,9 @@ func processSystemBootTimes(system *System, systats *SyStats) error {
 	return nil
 }
 
-func processLoggedInUsers(system *System, systats *SyStats) {
+func processLoggedInUsers(ctx context.Context, system *System, systats *SyStats) {
 	// NAME LINE TIME COMMENT
-	split := strings.Split(exec.Execute("who"), "\n")
+	split := strings.Split(exec.ExecuteWithContext(ctx, "who"), "\n")
 	system.LoggedInUsers = []User{}
 	for _, line := range split {
 		loggedInInfo := strings.Fields(line)

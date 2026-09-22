@@ -58,6 +58,17 @@ func main() {
 }
 ```
 
+`GetCPU` samples `/proc/stat` twice, so it blocks for `CPUSampleWindow`
+(300ms by default). Shorten it if you'd rather have the answer sooner:
+
+```go
+syStats := systats.New()
+syStats.CPUSampleWindow = 50 * time.Millisecond
+```
+
+The same window applies to `GetTopProcesses` and `GetProcess` in the default
+`CPUUsageInstant` mode.
+
 Two different metrics live on `CPU`, don't mix them up:
 
 * `LoadAvg`/`CoreAvg` - CPU *utilization* as a percentage, sampled over a 300ms window.
@@ -234,6 +245,42 @@ func main() {
 	procs, err := syStats.GetTopProcesses(10, "cpu")
 }
 ```
+
+### Contexts
+
+Methods that can block have a `WithContext` variant:
+
+```go
+func main() {
+	syStats := systats.New()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	cpu, err := syStats.GetCPUWithContext(ctx)
+}
+```
+
+These are `GetCPU`, `GetTopProcesses`, `GetProcess`, `GetSystem`,
+`IsServiceRunning`, `CanConnectExternal` and `IsPortOpen` - the ones that
+sample over a time window, shell out, or touch the network. The plain forms
+still work and just pass `context.Background()`, so nothing existing breaks.
+
+The other methods have no context variant on purpose. They only read local
+files under `/proc` and `/sys`, and a read already in flight can't be
+interrupted in Go - a `ctx` parameter there would promise a cancellation
+that can't actually happen.
+
+One of these is worth calling out:
+
+```go
+running, err := syStats.IsServiceRunningWithContext(ctx, "sshd")
+```
+
+`IsServiceRunning` returns a bare `bool`, so a wedged `systemctl` or a
+missing binary is indistinguishable from a stopped service. The context
+variant returns the error too: `false, nil` means genuinely stopped,
+`false, err` means the check itself failed.
 
 ### Container aware stats
 

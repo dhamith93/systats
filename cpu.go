@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"context"
 	"errors"
 	"path"
 	"regexp"
@@ -53,7 +54,7 @@ type CPU struct {
 	AllocatedCores float64 `json:"allocatedCores"`
 }
 
-func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
+func getCPU(ctx context.Context, systats *SyStats) (CPU, error) {
 	output := CPU{}
 	start := time.Now()
 
@@ -78,7 +79,9 @@ func getCPU(systats *SyStats, milliseconds int) (CPU, error) {
 	}
 
 	// to calculate the cpu usage the /proc/stat has to be read some time apart
-	time.Sleep(time.Duration(milliseconds) * time.Millisecond)
+	if err := sleepCtx(ctx, systats.cpuSampleWindow()); err != nil {
+		return output, err
+	}
 	statStr2, err := fileops.ReadFileWithError(systats.StatFilePath)
 	if err != nil {
 		return output, err

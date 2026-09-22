@@ -1,6 +1,14 @@
 package systats
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// defaultCPUSampleWindow is how long the two-sample CPU delta spans when
+// SyStats.CPUSampleWindow is left at its zero value.
+const defaultCPUSampleWindow = 300 * time.Millisecond
 
 const (
 	// Unit constants for GetMemory, GetSwap and Disk.Convert. These are
@@ -60,6 +68,22 @@ type SyStats struct {
 	// SelfCgroupPath is the file listing which cgroup(s) the calling
 	// process belongs to.
 	SelfCgroupPath string
+	// CPUSampleWindow is how far apart the two samples are taken when
+	// computing CPU utilization - by GetCPU always, and by GetTopProcesses
+	// and GetProcess in CPUUsageInstant mode. It is the dominant cost of
+	// those calls, so shortening it trades accuracy for latency. Zero means
+	// defaultCPUSampleWindow (300ms), so a hand-constructed SyStats{} does
+	// not end up sampling over no time at all.
+	CPUSampleWindow time.Duration
+}
+
+// cpuSampleWindow resolves the configured sampling window, falling back to
+// the default for a zero (or nonsensical negative) value.
+func (systats *SyStats) cpuSampleWindow() time.Duration {
+	if systats.CPUSampleWindow <= 0 {
+		return defaultCPUSampleWindow
+	}
+	return systats.CPUSampleWindow
 }
 
 func New() SyStats {
@@ -82,6 +106,22 @@ func New() SyStats {
 		ContainerAware:  false,
 		CgroupRootPath:  "/sys/fs/cgroup",
 		SelfCgroupPath:  "/proc/self/cgroup",
+		CPUSampleWindow: defaultCPUSampleWindow,
+	}
+}
+
+// sleepCtx waits for d, or returns ctx's error as soon as it is cancelled.
+// This is what makes the CPU sampling window interruptible: a plain
+// time.Sleep would hold the goroutine for the full window even after the
+// caller has gone away.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
 	}
 }
 
@@ -107,11 +147,24 @@ func (systats *SyStats) GetSwap(unit string) (Swap, error) {
 }
 
 func (systats *SyStats) GetCPU() (CPU, error) {
-	return withRecover(func() (CPU, error) { return getCPU(systats, 300) })
+	return systats.GetCPUWithContext(context.Background())
+}
+
+// GetCPUWithContext is GetCPU, abortable via ctx. GetCPU blocks for
+// CPUSampleWindow (300ms by default) while it takes its second sample;
+// cancelling ctx returns early instead of waiting that out.
+func (systats *SyStats) GetCPUWithContext(ctx context.Context) (CPU, error) {
+	return withRecover(func() (CPU, error) { return getCPU(ctx, systats) })
 }
 
 func (systats *SyStats) GetSystem() (System, error) {
-	return withRecover(func() (System, error) { return getSystem(systats) })
+	return systats.GetSystemWithContext(context.Background())
+}
+
+// GetSystemWithContext is GetSystem, abortable via ctx. GetSystem shells out
+// to who(1) to list logged-in users.
+func (systats *SyStats) GetSystemWithContext(ctx context.Context) (System, error) {
+	return withRecover(func() (System, error) { return getSystem(ctx, systats) })
 }
 
 func (systats *SyStats) GetNetworks() ([]Network, error) {
@@ -122,12 +175,32 @@ func (systats *SyStats) GetNetworkUsage(networkInterface string) NetworkUsage {
 	return getNetworkUsage(networkInterface)
 }
 
+// IsServiceRunning reports whether the service is active. It cannot
+// distinguish a stopped service from a failed check - use
+// IsServiceRunningWithContext if that difference matters.
 func (systats *SyStats) IsServiceRunning(service string) bool {
-	return isServiceRunning(service)
+	running, _ := systats.IsServiceRunningWithContext(context.Background(), service)
+	return running
+}
+
+// IsServiceRunningWithContext is IsServiceRunning, abortable via ctx, and
+// returning the error that IsServiceRunning discards. This matters: the
+// check shells out to systemctl, so (false, nil) means the service really
+// is stopped, while (false, err) means the check itself failed - a wedged
+// systemd, a cancelled context, or no systemctl/service binary at all.
+func (systats *SyStats) IsServiceRunningWithContext(ctx context.Context, service string) (bool, error) {
+	return isServiceRunning(ctx, service)
 }
 
 func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, error) {
-	return withRecover(func() ([]Process, error) { return getTopProcesses(systats, count, sort) })
+	return systats.GetTopProcessesWithContext(context.Background(), count, sort)
+}
+
+// GetTopProcessesWithContext is GetTopProcesses, abortable via ctx. In the
+// default CPUUsageInstant mode this blocks for CPUSampleWindow and then
+// walks every pid in /proc, so it is the call most worth bounding.
+func (systats *SyStats) GetTopProcessesWithContext(ctx context.Context, count int, sort string) ([]Process, error) {
+	return withRecover(func() ([]Process, error) { return getTopProcesses(ctx, systats, count, sort) })
 }
 
 // GetProcess looks up a single process by pid, returning an error if it
@@ -135,7 +208,13 @@ func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, erro
 // ProcessCPUMode - which means the default instant mode costs a ~300ms
 // sampling window per call.
 func (systats *SyStats) GetProcess(pid int) (Process, error) {
-	return withRecover(func() (Process, error) { return getProcess(systats, pid) })
+	return systats.GetProcessWithContext(context.Background(), pid)
+}
+
+// GetProcessWithContext is GetProcess, abortable via ctx - which in the
+// default instant mode means not waiting out the sampling window.
+func (systats *SyStats) GetProcessWithContext(ctx context.Context, pid int) (Process, error) {
+	return withRecover(func() (Process, error) { return getProcess(ctx, systats, pid) })
 }
 
 func (systats *SyStats) GetDisks() ([]Disk, error) {
@@ -150,11 +229,25 @@ func (systats *SyStats) GetDiskIO() ([]DiskIO, error) {
 }
 
 func (systats *SyStats) IsPortOpen(port int) bool {
-	return isPortOpen(port)
+	return systats.IsPortOpenWithContext(context.Background(), port)
+}
+
+// IsPortOpenWithContext is IsPortOpen, abortable via ctx. A cancelled
+// context reports the port as closed, since a probe that did not complete
+// is not evidence that anything is listening.
+func (systats *SyStats) IsPortOpenWithContext(ctx context.Context, port int) bool {
+	return isPortOpen(ctx, port)
 }
 
 func (systats *SyStats) CanConnectExternal(url string) (bool, error) {
-	return withRecover(func() (bool, error) { return canConnect(url) })
+	return systats.CanConnectExternalWithContext(context.Background(), url)
+}
+
+// CanConnectExternalWithContext is CanConnectExternal, abortable via ctx.
+// The 10s client timeout still applies as a backstop when ctx has no
+// deadline of its own.
+func (systats *SyStats) CanConnectExternalWithContext(ctx context.Context, url string) (bool, error) {
+	return withRecover(func() (bool, error) { return canConnect(ctx, url) })
 }
 
 func (systats *SyStats) EstablishedTCPConnCount(procName string) int {

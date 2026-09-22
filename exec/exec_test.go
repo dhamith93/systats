@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -90,5 +91,63 @@ func TestExecuteRespectsTimeout(t *testing.T) {
 
 	if elapsed > 2*time.Second {
 		t.Errorf("Execute(sleep, 10) took %v with a 100ms timeout, want well under 2s", elapsed)
+	}
+}
+
+// TestExecuteWithContextCancels verifies the caller's context can kill a
+// subprocess well before defaultExecTimeout would have.
+func TestExecuteWithContextCancels(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	ExecuteWithContext(ctx, "sleep", "10")
+	elapsed := time.Since(start)
+
+	if elapsed > 2*time.Second {
+		t.Errorf("ExecuteWithContext(sleep, 10) took %v with a 50ms context, want well under 2s", elapsed)
+	}
+}
+
+func TestExecuteWithErrorAndContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := ExecuteWithErrorAndContext(ctx, "echo", "hello"); err == nil {
+		t.Errorf("ExecuteWithErrorAndContext() on a cancelled context returned nil error, want non-nil")
+	}
+}
+
+// TestContextVariantKeepsDefaultTimeout is the other half of the contract:
+// passing a context with no deadline must not remove the 5s backstop that
+// the non-context functions have always had.
+func TestContextVariantKeepsDefaultTimeout(t *testing.T) {
+	original := defaultExecTimeout
+	defaultExecTimeout = 100 * time.Millisecond
+	defer func() { defaultExecTimeout = original }()
+
+	start := time.Now()
+	ExecuteWithContext(context.Background(), "sleep", "10")
+	elapsed := time.Since(start)
+
+	if elapsed > 2*time.Second {
+		t.Errorf("ExecuteWithContext() with a deadline-less context took %v, want the %v backstop to still apply", elapsed, defaultExecTimeout)
+	}
+}
+
+func TestExecuteWithPipeAndContext(t *testing.T) {
+	got := ExecuteWithPipeAndContext(context.Background(), "echo hi | tr a-z A-Z")
+	if got != "HI\n" {
+		t.Errorf("ExecuteWithPipeAndContext(...) = %q, want %q", got, "HI\n")
+	}
+}
+
+func TestExecuteWithPipeAndErrorAndContext(t *testing.T) {
+	got, err := ExecuteWithPipeAndErrorAndContext(context.Background(), "echo hi")
+	if err != nil {
+		t.Errorf("ExecuteWithPipeAndErrorAndContext(...) returned error %v, want nil", err)
+	}
+	if got != "hi\n" {
+		t.Errorf("ExecuteWithPipeAndErrorAndContext(...) = %q, want %q", got, "hi\n")
 	}
 }

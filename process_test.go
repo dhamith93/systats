@@ -1,6 +1,9 @@
 package systats
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func fakeCandidates() []procCandidate {
 	return []procCandidate{
@@ -251,7 +254,7 @@ func TestListPidsFromFixtureTree(t *testing.T) {
 // fixture tree. Average mode has no sleep and no wall-clock dependency,
 // so every value here is deterministic.
 func TestGetProcessAverageMode(t *testing.T) {
-	got, err := getProcess(procFixtureStats(), 1234)
+	got, err := getProcess(context.Background(), procFixtureStats(), 1234)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -292,7 +295,7 @@ func TestGetProcessAverageMode(t *testing.T) {
 // TestGetProcessDegradesWhenIOAndFDsUnreadable covers a kernel-thread-like
 // process: no io file, no fd directory. Neither is fatal.
 func TestGetProcessDegradesWhenIOAndFDsUnreadable(t *testing.T) {
-	got, err := getProcess(procFixtureStats(), 5678)
+	got, err := getProcess(context.Background(), procFixtureStats(), 5678)
 	if err != nil {
 		t.Fatalf("missing io/fd must not fail the lookup, got %v", err)
 	}
@@ -316,7 +319,7 @@ func TestGetProcessDegradesWhenIOAndFDsUnreadable(t *testing.T) {
 }
 
 func TestGetProcessUnknownPid(t *testing.T) {
-	if _, err := getProcess(procFixtureStats(), 99999); err == nil {
+	if _, err := getProcess(context.Background(), procFixtureStats(), 99999); err == nil {
 		t.Errorf("expected an error for a pid that doesn't exist")
 	}
 }
@@ -337,7 +340,7 @@ func TestValidateSortBy(t *testing.T) {
 
 func TestGetTopProcessesRejectsUnknownSort(t *testing.T) {
 	syStats := procFixtureStats()
-	if _, err := getTopProcesses(syStats, 5, "memroy"); err == nil {
+	if _, err := getTopProcesses(context.Background(), syStats, 5, "memroy"); err == nil {
 		t.Errorf("expected an error for a misspelled sort order")
 	}
 }
