@@ -43,7 +43,7 @@ Returns OS, Hostname, Kernel, Up time, last boot date, timezone, logged in users
 ```go
 func main() {
 	syStats := systats.New()
-	system, err := systats.GetSystem()
+	system, err := syStats.GetSystem()
 }
 ```
 
@@ -54,7 +54,7 @@ CPU info and usage info (overall, and per core)
 ```go
 func main() {
 	syStats := systats.New()
-	cpu, err := systats.GetCPU()
+	cpu, err := syStats.GetCPU()
 }
 ```
 
@@ -74,7 +74,7 @@ Core counts, likewise:
 ```go
 func main() {
 	syStats := systats.New()
-	memory, err := systats.GetMemory(systats.Megabyte)
+	memory, err := syStats.GetMemory(systats.Megabyte)
 }
 ```
 
@@ -83,9 +83,24 @@ func main() {
 ```go
 func main() {
 	syStats := systats.New()
-	swap, err := systats.GetSwap(systats.Megabyte)
+	swap, err := syStats.GetSwap(systats.Megabyte)
 }
 ```
+
+### A note on units
+
+`systats.Byte`, `Kilobyte`, `Megabyte` and `Gigabyte` are accepted by `GetMemory`, `GetSwap` and `Disk.Convert`. Despite the names they are **binary** units - `Megabyte` is MiB, `Gigabyte` is GiB - so the numbers line up with what `free -m`, `df -h` and `top` show, and a container limited to `-m 512m` reports `512`.
+
+`Memory` and `Swap` sizes are `float64`, so the larger units stay usable:
+
+```
+B   total=16706908160.00
+KB  total=16315340.00
+MB  total=15932.95
+GB  total=15.56
+```
+
+(`Disk` sizes are integers - disk values are large enough that truncation doesn't matter.)
 
 ### Disks
 
@@ -185,10 +200,12 @@ Returns running processes sorted by CPU or memory usage
 ```go
 func main() {
 	syStats := systats.New()
-	procs, err := syStats.GetTopProcesses(10, "cpu")
-	procs, err := syStats.GetTopProcesses(10, "memory")
+	procs, err := syStats.GetTopProcesses(10, systats.SortByCPU)
+	procs, err := syStats.GetTopProcesses(10, systats.SortByMemory)
 }
 ```
+
+Use the `SortByCPU`/`SortByMemory` constants - an unrecognized sort order returns an error rather than quietly falling back to CPU.
 
 To look up one known process instead of the top N:
 
