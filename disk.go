@@ -1,6 +1,7 @@
 package systats
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -169,85 +170,45 @@ func usagePercent(used, avail uint64) string {
 	return strconv.Itoa(pct) + "%"
 }
 
+// bytesPerUnit is how many bytes one of each unit holds. All binary, so
+// every factor is a power of two and conversions through it are exact in
+// float64.
+var bytesPerUnit = map[string]float64{
+	Byte:     1,
+	Kilobyte: 1024,
+	Megabyte: 1024 * 1024,
+	Gigabyte: 1024 * 1024 * 1024,
+}
+
 // Convert rewrites d's usage figures into unit, in place. The unit
 // constants are binary (Megabyte is MiB, Gigabyte is GiB), matching
 // GetMemory/GetSwap and what df(1) reports.
 //
+// An unrecognized unit - on either side of the conversion - returns an
+// error and leaves d untouched. Convert used to relabel the figures
+// without converting them, so the struct reported values in a unit they
+// weren't in.
+//
 // Note the pointer receiver: ranging over a []Disk gives copies, so
 // `for _, d := range disks { d.Convert(...) }` won't change the slice.
 // Index instead: `for i := range disks { disks[i].Convert(...) }`.
-func (d *Disk) Convert(unit string) {
-	if d.Usage.Unit == Byte {
-		if unit == Kilobyte {
-			d.Usage.Size = d.Usage.Size / 1024
-			d.Usage.Used = d.Usage.Used / 1024
-			d.Usage.Available = d.Usage.Available / 1024
-		}
-		if unit == Megabyte {
-			d.Usage.Size = d.Usage.Size / 1024 / 1024
-			d.Usage.Used = d.Usage.Used / 1024 / 1024
-			d.Usage.Available = d.Usage.Available / 1024 / 1024
-		}
-		if unit == Gigabyte {
-			d.Usage.Size = d.Usage.Size / 1024 / 1024 / 1024
-			d.Usage.Used = d.Usage.Used / 1024 / 1024 / 1024
-			d.Usage.Available = d.Usage.Available / 1024 / 1024 / 1024
-		}
+func (d *Disk) Convert(unit string) error {
+	from, ok := bytesPerUnit[d.Usage.Unit]
+	if !ok {
+		return errors.New(d.Usage.Unit + " is not a supported unit to convert from")
+	}
+	to, ok := bytesPerUnit[unit]
+	if !ok {
+		return errors.New(unit + " is not a supported unit to convert to")
 	}
 
-	if d.Usage.Unit == Kilobyte {
-		if unit == Byte {
-			d.Usage.Size = d.Usage.Size * 1024
-			d.Usage.Used = d.Usage.Used * 1024
-			d.Usage.Available = d.Usage.Available * 1024
-		}
-		if unit == Megabyte {
-			d.Usage.Size = d.Usage.Size / 1024
-			d.Usage.Used = d.Usage.Used / 1024
-			d.Usage.Available = d.Usage.Available / 1024
-		}
-		if unit == Gigabyte {
-			d.Usage.Size = d.Usage.Size / 1024 / 1024
-			d.Usage.Used = d.Usage.Used / 1024 / 1024
-			d.Usage.Available = d.Usage.Available / 1024 / 1024
-		}
-	}
-
-	if d.Usage.Unit == Megabyte {
-		if unit == Byte {
-			d.Usage.Size = d.Usage.Size * 1024 * 1024
-			d.Usage.Used = d.Usage.Used * 1024 * 1024
-			d.Usage.Available = d.Usage.Available * 1024 * 1024
-		}
-		if unit == Kilobyte {
-			d.Usage.Size = d.Usage.Size * 1024
-			d.Usage.Used = d.Usage.Used * 1024
-			d.Usage.Available = d.Usage.Available * 1024
-		}
-		if unit == Gigabyte {
-			d.Usage.Size = d.Usage.Size / 1024
-			d.Usage.Used = d.Usage.Used / 1024
-			d.Usage.Available = d.Usage.Available / 1024
-		}
-	}
-
-	if d.Usage.Unit == Gigabyte {
-		if unit == Byte {
-			d.Usage.Size = d.Usage.Size * 1024 * 1024 * 1024
-			d.Usage.Used = d.Usage.Used * 1024 * 1024 * 1024
-			d.Usage.Available = d.Usage.Available * 1024 * 1024 * 1024
-		}
-		if unit == Kilobyte {
-			d.Usage.Size = d.Usage.Size * 1024 * 1024
-			d.Usage.Used = d.Usage.Used * 1024 * 1024
-			d.Usage.Available = d.Usage.Available * 1024 * 1024
-		}
-		if unit == Megabyte {
-			d.Usage.Size = d.Usage.Size * 1024
-			d.Usage.Used = d.Usage.Used * 1024
-			d.Usage.Available = d.Usage.Available * 1024
-		}
-	}
-
+	// Normalize through bytes rather than special-casing each pair. Both
+	// factors are powers of two, so this round-trips exactly.
+	factor := from / to
+	d.Usage.Size *= factor
+	d.Usage.Used *= factor
+	d.Usage.Available *= factor
 	d.Usage.Unit = unit
+
+	return nil
 }

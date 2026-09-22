@@ -6,6 +6,11 @@ All notable changes to this project are documented here, following the
 ## [Unreleased]
 
 ### Changed
+- **`Disk.Convert` now returns an error** for an unrecognized unit, on
+  either side of the conversion. It previously matched no branch, left the
+  figures unconverted, and still stamped the new unit on them - so
+  `d.Convert("XB")` produced a struct reporting values in a unit they
+  weren't in.
 - **`DiskUsage` size fields are now `float64`** (`Size`, `Used`,
   `Available`), matching `Memory` and `Swap`. As integers, `Disk.Convert`
   truncated on every step: a 512 MiB partition converted to `Gigabyte`

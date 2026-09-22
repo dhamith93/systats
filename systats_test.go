@@ -466,7 +466,9 @@ func TestDiskConvert(t *testing.T) {
 	// Written as exact divisions rather than decimal literals: every
 	// divisor is a power of two, so these are exact in float64. As
 	// integers these truncated to 112162 / 102607 / 3814.
-	disk.Convert(systats.Megabyte)
+	if err := disk.Convert(systats.Megabyte); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if want := 117610516480.0 / 1024 / 1024; disk.Usage.Size != want {
 		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Size, want)
 		return
@@ -480,7 +482,9 @@ func TestDiskConvert(t *testing.T) {
 		return
 	}
 
-	disk.Convert(systats.Gigabyte)
+	if err := disk.Convert(systats.Gigabyte); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if want := 117610516480.0 / 1024 / 1024 / 1024; disk.Usage.Size != want {
 		t.Errorf("Got invalid value. got: %v, want: %v", disk.Usage.Size, want)
 		return
@@ -507,12 +511,52 @@ func TestDiskConvertRoundTrips(t *testing.T) {
 		},
 	}
 
-	disk.Convert(systats.Gigabyte)
-	disk.Convert(systats.Byte)
+	if err := disk.Convert(systats.Gigabyte); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := disk.Convert(systats.Byte); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if disk.Usage.Size != sizeBytes {
 		t.Errorf("round trip B -> GB -> B = %v, want %v (lost %v bytes)",
 			disk.Usage.Size, sizeBytes, sizeBytes-disk.Usage.Size)
+	}
+}
+
+// Convert used to leave the figures unconverted but still stamp the new
+// unit on them, so the struct reported values in a unit they weren't in.
+func TestDiskConvertRejectsUnknownUnit(t *testing.T) {
+	disk := systats.Disk{
+		Usage: systats.DiskUsage{
+			Size:      1024,
+			Used:      512,
+			Available: 512,
+			Unit:      systats.Byte,
+		},
+	}
+	before := disk.Usage
+
+	if err := disk.Convert("XB"); err == nil {
+		t.Errorf("Convert(\"XB\") returned nil error, want a rejection")
+	}
+	if disk.Usage != before {
+		t.Errorf("Convert with a bad unit modified the struct: got %+v, want %+v", disk.Usage, before)
+	}
+}
+
+// The unit the disk is currently in has to be recognized too, or the
+// conversion factor would be a silent guess.
+func TestDiskConvertRejectsUnknownSourceUnit(t *testing.T) {
+	disk := systats.Disk{
+		Usage: systats.DiskUsage{Size: 1024, Unit: "XB"},
+	}
+
+	if err := disk.Convert(systats.Megabyte); err == nil {
+		t.Errorf("Convert from an unrecognized unit returned nil error, want a rejection")
+	}
+	if disk.Usage.Size != 1024 {
+		t.Errorf("Size = %v, want it left untouched at 1024", disk.Usage.Size)
 	}
 }
 
@@ -525,7 +569,9 @@ func TestDiskConvertKeepsSmallValues(t *testing.T) {
 		},
 	}
 
-	disk.Convert(systats.Gigabyte)
+	if err := disk.Convert(systats.Gigabyte); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if want := 0.5; disk.Usage.Size != want {
 		t.Errorf("512 MiB in GiB = %v, want %v", disk.Usage.Size, want)
