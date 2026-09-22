@@ -11,6 +11,22 @@
 // This package is Linux-only - most Get* methods depend on /proc, /sys,
 // or systemd/SysV service tooling that don't exist on other platforms.
 //
+// # Concurrency
+//
+// A SyStats is safe for concurrent use once configured. No method writes
+// to its receiver, so any number of goroutines may share one value:
+//
+//	syStats := systats.New()
+//	syStats.ContainerAware = true   // configure first
+//	go poll(&syStats)               // then share freely
+//	go poll(&syStats)
+//
+// The configuration fields - the /proc and /sys paths, ContainerAware,
+// ProcessCPUMode and CPUSampleWindow - are ordinary struct fields with no
+// synchronization. Set them before the first call. Changing one while
+// another goroutine is calling a method is a data race; give each
+// goroutine its own SyStats if they need different settings.
+//
 // # Contexts
 //
 // Methods that can block have a WithContext variant:

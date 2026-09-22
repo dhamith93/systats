@@ -50,7 +50,13 @@ const (
 	CPUUsageAverage CPUMode = "average"
 )
 
-// SyStats holds information used to collect data
+// SyStats holds information used to collect data.
+//
+// Safe for concurrent use once configured: no method writes to its
+// receiver, so goroutines may share one value freely. The fields below
+// are plain struct fields with no synchronization, so set them before the
+// first call - mutating one while another goroutine is inside a method is
+// a data race.
 type SyStats struct {
 	MeminfoPath     string
 	ProcPath        string

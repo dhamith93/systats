@@ -246,6 +246,22 @@ func main() {
 }
 ```
 
+### Concurrency
+
+A `SyStats` is safe for concurrent use once configured - no method writes to its receiver, so goroutines can share one value:
+
+```go
+func main() {
+	syStats := systats.New()
+	syStats.ContainerAware = true // configure first
+
+	go poll(&syStats) // then share freely
+	go poll(&syStats)
+}
+```
+
+The configuration fields are plain struct fields with no synchronization, so set them before the first call. Flipping `ProcessCPUMode` while another goroutine is mid-call is a data race - give each goroutine its own `SyStats` if they need different settings.
+
 ### Contexts
 
 Methods that can block have a `WithContext` variant:

@@ -3,6 +3,7 @@ package systats
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -180,4 +181,35 @@ func TestLegacyMethodsStillWork(t *testing.T) {
 	if _, err := cpuFixtureStats().GetCPU(); err != nil {
 		t.Errorf("GetCPU() = %v, want nil", err)
 	}
+}
+
+// TestConcurrentUse backs the thread-safety claim in the package docs with
+// the race detector. Run as part of `go test -race`.
+func TestConcurrentUse(t *testing.T) {
+	syStats := procFixtureStats()
+	cpu := cpuFixtureStats()
+	cpu.CPUSampleWindow = time.Millisecond
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 5; j++ {
+				if _, err := syStats.GetTopProcesses(3, SortByCPU); err != nil {
+					t.Errorf("GetTopProcesses: %v", err)
+				}
+				if _, err := syStats.GetProcess(1234); err != nil {
+					t.Errorf("GetProcess: %v", err)
+				}
+				if _, err := syStats.GetMemory(Megabyte); err != nil {
+					t.Errorf("GetMemory: %v", err)
+				}
+				if _, err := cpu.GetCPU(); err != nil {
+					t.Errorf("GetCPU: %v", err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }

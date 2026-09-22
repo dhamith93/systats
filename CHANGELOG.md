@@ -27,6 +27,11 @@ All notable changes to this project are documented here, following the
   818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
+- **Documented the concurrency contract.** A `SyStats` is safe for
+  concurrent use once configured - no method writes to its receiver. The
+  configuration fields have no synchronization, so they must be set before
+  the first call. This was always true but never stated, so callers had to
+  guess; there's now a race-detector test covering it.
 - **`System.UpTimeSeconds`** - the uptime as a number, alongside the
   existing human-readable `UpTime` string (`"72h3m0s"`), which consumers
   previously had to re-parse to do any arithmetic with.
