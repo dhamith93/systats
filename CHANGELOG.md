@@ -13,6 +13,40 @@ All notable changes to this project are documented here, following the
   `GetTopProcesses`, or `EstablishedTCPConnCount` anymore.
 
 ### Added
+- `GetProcess(pid)` - look up a single process instead of only the top N.
+  Returns an error when the pid isn't readable, unlike `GetTopProcesses`
+  which skips such processes. Honors `ProcessCPUMode`, so the default
+  instant mode costs a ~300ms sampling window per call.
+- `Process` gained `Name` (stat's `comm`, the only name a kernel thread
+  has), `State`/`StateName`, `Threads`, `OpenFDs`/`FDsAccessible`, and
+  `IO` (per-process counters from `/proc/<pid>/io`). These are populated
+  by `GetTopProcesses` too. `IO` and `OpenFDs` are permission-gated -
+  check their `Accessible` flags before reading zeros as real.
+- `SyStats.ProcPath` - overridable `/proc` root, which is what makes the
+  process code testable against a fixture tree instead of a live system.
+- `GetTCPConnectionStates()` - counts every TCP socket in the network
+  namespace by connection state (ESTABLISHED, TIME_WAIT, LISTEN, ...),
+  IPv4 and IPv6 combined. Complements `EstablishedTCPConnCount`, which
+  remains the per-process view. Overridable via `SyStats.NetTCPPath` and
+  `SyStats.NetTCP6Path`.
+- `GetProtocolStats()` - TCP/UDP/IP/ICMP counters merged from
+  `/proc/net/snmp` and `/proc/net/netstat` (retransmits, listen
+  overflows, UDP errors, ...). Keyed by protocol then counter name;
+  `Value(protocol, counter)` returns `ok=false` for counters this kernel
+  doesn't implement, which a fixed struct couldn't distinguish from
+  zero. Overridable via `SyStats.NetSNMPPath` and
+  `SyStats.NetNetstatPath`.
+- `GetDiskIO()` - per-device I/O counters from `/proc/diskstats`
+  (reads/writes completed and merged, bytes read/written, time spent,
+  queue depth, plus discard and flush stats where the kernel provides
+  them). Values are cumulative counters since boot; `DiskIO.RatesSince`
+  turns two samples into throughput, IOPS and `iostat`-style `%util`.
+  Overridable via `SyStats.DiskStatsPath`.
+- `CPU.PhysicalCores` and `CPU.Sockets` - counted from distinct
+  `(physical id, core id)` pairs in `/proc/cpuinfo`, which is correct on
+  multi-socket and hybrid P+E-core machines where `cpu cores` is not.
+  Falls back to the logical count on architectures that don't publish
+  topology (ARM, RISC-V, some containers).
 - `SyStats.ContainerAware` - opt-in (default false, so nothing changes
   for existing callers). When set, `GetMemory`/`GetCPU` report the
   calling process's own cgroup limits (v1 and v2, auto-detected) instead
@@ -37,6 +71,13 @@ All notable changes to this project are documented here, following the
   `GetDisks` (defaults to `/proc/mounts`).
 
 ### Changed
+- **`CPU.NoOfCores` now means logical CPUs** (what `nproc` reports), not
+  physical cores. It previously came from `/proc/cpuinfo`'s `cpu cores`
+  field, which is physical cores *per socket* - so it disagreed with
+  `len(CoreAvg)` on any hyperthreaded machine and was half the real
+  count on a dual-socket one. Use the new `CPU.PhysicalCores` if you
+  want the old-style physical count; it's now computed correctly across
+  all sockets.
 - **JSON output now uses explicit lowerCamelCase tags** (e.g. `"rxBytes"`)
   instead of Go's default PascalCase field names (e.g. `"RxBytes"`) on
   every exported struct. This changes the JSON shape for any consumer
