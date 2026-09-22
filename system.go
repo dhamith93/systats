@@ -14,10 +14,15 @@ import (
 
 // System holds operating system information
 type System struct {
-	HostName      string    `json:"hostName"`
-	OS            string    `json:"os"`
-	Kernel        string    `json:"kernel"`
-	UpTime        string    `json:"upTime"`
+	HostName string `json:"hostName"`
+	OS       string `json:"os"`
+	Kernel   string `json:"kernel"`
+	// UpTime is human-readable ("72h3m0s"). Use UpTimeSeconds for
+	// arithmetic - parsing this back is lossy and needless.
+	UpTime string `json:"upTime"`
+	// UpTimeSeconds is the same value as a number, straight from
+	// /proc/uptime's first field.
+	UpTimeSeconds float64   `json:"upTimeSeconds"`
 	LastBootDate  time.Time `json:"lastBootDate"`
 	LoggedInUsers []User    `json:"loggedInUsers"`
 	Time          int64     `json:"time"`
@@ -84,12 +89,16 @@ func getOperatingSystem(system *System, systats *SyStats) error {
 func processSystemBootTimes(system *System, systats *SyStats) error {
 	split := strings.Fields(fileops.ReadFile(systats.UptimePath))
 	if len(split) >= 1 {
-		uptimeSecsFloat, err := strconv.ParseFloat(strings.TrimSpace(split[0]), 32)
+		// bitSize 64, not 32: the value lands in a float64 field, and
+		// float32 only carries ~7 significant digits - enough to distort
+		// the uptime of a host that's been up for a few months.
+		uptimeSecsFloat, err := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
 		if err != nil {
 			return err
 		}
 		uptime := time.Duration(int64(uptimeSecsFloat) * int64(time.Second))
 		system.UpTime = strings.TrimSpace(uptime.String())
+		system.UpTimeSeconds = uptimeSecsFloat
 		system.LastBootDate = time.Now().Add(-uptime).Round(time.Second)
 	}
 	localTimePath, _ := os.Readlink(systats.EtcPath + "/localtime")

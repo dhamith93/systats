@@ -27,6 +27,9 @@ All notable changes to this project are documented here, following the
   818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
+- **`System.UpTimeSeconds`** - the uptime as a number, alongside the
+  existing human-readable `UpTime` string (`"72h3m0s"`), which consumers
+  previously had to re-parse to do any arithmetic with.
 - **`SyStats.SysClassNetPath`** (default `/sys/class/net`) - the last
   hardcoded path in the module. `GetNetworks` and `GetNetworkUsage` can now
   be pointed at a fixture tree like every other collector, which is what
@@ -61,6 +64,9 @@ All notable changes to this project are documented here, following the
   deadline of its own.
 
 ### Fixed
+- `System.UpTime`/`LastBootDate` parsed `/proc/uptime` at `bitSize` 32
+  while storing into wider types, so the value was rounded to float32's
+  ~7 significant digits before anyone saw it.
 - `isServiceRunning` now decides on the tool's *output* rather than its exit
   code. `systemctl is-active` exits non-zero for an inactive service just as
   it does for a genuine failure, so the exit code alone could not tell those
