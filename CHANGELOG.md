@@ -3,7 +3,7 @@
 All notable changes to this project are documented here, following the
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-## [Unreleased]
+## [v0.4.1] - 2026-09-22
 
 ### Fixed
 - `GetSystem` invented a logged-in user when `who(1)` wasn't installed.
