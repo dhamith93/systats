@@ -1,68 +1,69 @@
 package systats
 
 import (
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/dhamith93/systats/internal/fileops"
 	"github.com/dhamith93/systats/internal/strops"
-	"github.com/dhamith93/systats/internal/unitconv"
 )
 
-// Swap holds information on system swap usage
+// Swap holds information on system swap usage.
+//
+// As with Memory, the size fields are float64 in the requested Unit so
+// the larger units stay usable - see the Memory doc comment.
 type Swap struct {
 	PercentageUsed float64 `json:"percentageUsed"`
-	Free           uint64  `json:"free"`
-	Used           uint64  `json:"used"`
+	Free           float64 `json:"free"`
+	Used           float64 `json:"used"`
 	Time           int64   `json:"time"`
-	Total          uint64  `json:"total"`
+	Total          float64 `json:"total"`
 	Unit           string  `json:"unit"`
 }
 
 func getSwap(systats *SyStats, unit string) (Swap, error) {
-	output := Swap{}
-	output.Unit = unit
+	output := Swap{Unit: unit}
+
+	// Resolved first so an unsupported unit fails before any file I/O.
+	convert, err := kibConverter(unit)
+	if err != nil {
+		return output, err
+	}
 
 	meminfoStr, err := fileops.ReadFileWithError(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}
 
-	meminfoSplit := strings.Split(meminfoStr, "\n")
+	totalKiB, freeKiB := parseSwapMeminfo(meminfoStr)
+	var usedKiB uint64
+	if totalKiB > 0 {
+		usedKiB = totalKiB - freeKiB
+		output.PercentageUsed = float64(usedKiB) / float64(totalKiB) * 100
+	}
 
-	for _, line := range meminfoSplit {
+	output.Total = convert(totalKiB)
+	output.Used = convert(usedKiB)
+	output.Free = convert(freeKiB)
+	output.Time = time.Now().Unix()
+
+	return output, nil
+}
+
+// parseSwapMeminfo reads the swap figures (in KiB) from /proc/meminfo
+// content.
+func parseSwapMeminfo(content string) (totalKiB, freeKiB uint64) {
+	for _, line := range strings.Split(content, "\n") {
 		lineArr := strings.Fields(line)
 		if len(lineArr) == 0 {
 			continue
 		}
-		if lineArr[0] == "SwapTotal:" {
-			output.Total = strops.ToUint64(lineArr[1])
+		switch lineArr[0] {
+		case "SwapTotal:":
+			totalKiB = strops.ToUint64(lineArr[1])
+		case "SwapFree:":
+			freeKiB = strops.ToUint64(lineArr[1])
 		}
-		if lineArr[0] == "SwapFree:" {
-			output.Free = strops.ToUint64(lineArr[1])
-		}
 	}
-
-	if output.Total > 0 {
-		output.Used = output.Total - output.Free
-		percentage := float64(output.Used) / float64(output.Total) * 100
-		output.PercentageUsed = percentage
-	}
-
-	output.Time = time.Now().Unix()
-
-	if unit == Kilobyte {
-		output.Total = unitconv.KibToKB(output.Total)
-		output.Used = unitconv.KibToKB(output.Used)
-		output.Free = unitconv.KibToKB(output.Free)
-	} else if unit == Megabyte {
-		output.Total = unitconv.KibToMB(output.Total)
-		output.Used = unitconv.KibToMB(output.Used)
-		output.Free = unitconv.KibToMB(output.Free)
-	} else {
-		return output, errors.New(unit + " is not supported")
-	}
-
-	return output, nil
+	return totalKiB, freeKiB
 }

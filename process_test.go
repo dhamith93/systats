@@ -320,3 +320,36 @@ func TestGetProcessUnknownPid(t *testing.T) {
 		t.Errorf("expected an error for a pid that doesn't exist")
 	}
 }
+
+func TestValidateSortBy(t *testing.T) {
+	for _, ok := range []string{"", SortByCPU, SortByMemory} {
+		if err := validateSortBy(ok); err != nil {
+			t.Errorf("validateSortBy(%q) = %v, want nil", ok, err)
+		}
+	}
+	// A typo used to silently sort by CPU and report success.
+	for _, bad := range []string{"memroy", "CPU", "ram", "cpu "} {
+		if err := validateSortBy(bad); err == nil {
+			t.Errorf("validateSortBy(%q) = nil, want an error", bad)
+		}
+	}
+}
+
+func TestGetTopProcessesRejectsUnknownSort(t *testing.T) {
+	syStats := procFixtureStats()
+	if _, err := getTopProcesses(syStats, 5, "memroy"); err == nil {
+		t.Errorf("expected an error for a misspelled sort order")
+	}
+}
+
+func TestSortAndLimitUsesConstants(t *testing.T) {
+	// SortByMemory must select the memory ordering; anything else is CPU.
+	byMem := sortAndLimit(fakeCandidates(), SortByMemory, 1)
+	if byMem[0].pid != 4 {
+		t.Errorf("SortByMemory picked pid %d, want 4", byMem[0].pid)
+	}
+	byCPU := sortAndLimit(fakeCandidates(), SortByCPU, 1)
+	if byCPU[0].pid != 2 {
+		t.Errorf("SortByCPU picked pid %d, want 2", byCPU[0].pid)
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/dhamith93/systats"
@@ -17,6 +18,7 @@ import (
 var (
 	cpuProfile = flag.String("cpuprofile", "", "write a CPU profile to this file (analyze with: go tool pprof -http=:8080 <file>)")
 	memProfile = flag.String("memprofile", "", "write a heap profile to this file after all calls complete")
+	out        = flag.String("out", "build_test/report.html", "where to write the HTML report")
 )
 
 // section is one Get* call's result, rendered as a labeled block in the
@@ -86,6 +88,23 @@ func main() {
 
 	data.Sections = append(data.Sections, timedCollect("GetMemory", func() (any, error) { return syStats.GetMemory(systats.Megabyte) }))
 	data.Sections = append(data.Sections, timedCollect("GetSwap", func() (any, error) { return syStats.GetSwap(systats.Megabyte) }))
+
+	// All four unit constants, so the report doubles as a cross-check
+	// that the binary conversions are right: MB should match `free -m`
+	// and GB should be MB/1024. Byte and Gigabyte were rejected outright
+	// before v0.4.0, so a value here also proves that fix landed.
+	data.Checks = append(data.Checks, timedCheck("Memory total (B / KB / MB / GB)", func() string {
+		parts := make([]string, 0, 4)
+		for _, unit := range []string{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
+			m, err := syStats.GetMemory(unit)
+			if err != nil {
+				parts = append(parts, "ERR("+unit+"): "+err.Error())
+				continue
+			}
+			parts = append(parts, fmt.Sprintf("%.2f %s", m.Total, m.Unit))
+		}
+		return strings.Join(parts, "  /  ")
+	}))
 	data.Sections = append(data.Sections, timedCollect("GetDisks", func() (any, error) { return syStats.GetDisks() }))
 	data.Sections = append(data.Sections, timedCollect("GetDiskIO", func() (any, error) { return syStats.GetDiskIO() }))
 	data.Sections = append(data.Sections, timedCollect("GetNetworks", func() (any, error) { return syStats.GetNetworks() }))
@@ -105,7 +124,7 @@ func main() {
 	if cgMemErr == nil {
 		data.Checks = append(data.Checks, check{
 			Name:     "Memory cgroup limit detected",
-			Value:    fmt.Sprintf("%v (total: %d %s)", cgMem.Limited, cgMem.Total, cgMem.Unit),
+			Value:    fmt.Sprintf("%v (total: %.2f %s)", cgMem.Limited, cgMem.Total, cgMem.Unit),
 			Duration: cgMemDuration.String(),
 		})
 	}
@@ -136,12 +155,29 @@ func main() {
 	syStats.ContainerAware = false
 
 	syStats.ProcessCPUMode = systats.CPUUsageInstant
-	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(cpu, instant)", func() (any, error) { return syStats.GetTopProcesses(5, "cpu") }))
-	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(memory, instant)", func() (any, error) { return syStats.GetTopProcesses(5, "memory") }))
+	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(cpu, instant)", func() (any, error) {
+		return syStats.GetTopProcesses(5, systats.SortByCPU)
+	}))
+	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(memory, instant)", func() (any, error) {
+		return syStats.GetTopProcesses(5, systats.SortByMemory)
+	}))
 
 	syStats.ProcessCPUMode = systats.CPUUsageAverage
-	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(cpu, average)", func() (any, error) { return syStats.GetTopProcesses(5, "cpu") }))
-	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(memory, average)", func() (any, error) { return syStats.GetTopProcesses(5, "memory") }))
+	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(cpu, average)", func() (any, error) {
+		return syStats.GetTopProcesses(5, systats.SortByCPU)
+	}))
+	data.Sections = append(data.Sections, timedCollect("GetTopProcesses(memory, average)", func() (any, error) {
+		return syStats.GetTopProcesses(5, systats.SortByMemory)
+	}))
+
+	// A misspelled sort order used to silently sort by CPU; it should now
+	// come back as an error.
+	data.Checks = append(data.Checks, timedCheck("GetTopProcesses rejects a bad sort order", func() string {
+		if _, err := syStats.GetTopProcesses(5, "memroy"); err != nil {
+			return "true (" + err.Error() + ")"
+		}
+		return "false - BUG: a misspelled sort order was accepted"
+	}))
 
 	syStats.ProcessCPUMode = systats.CPUUsageAverage
 	data.Sections = append(data.Sections, timedCollect("GetProcess(self, average)", func() (any, error) {
@@ -238,12 +274,18 @@ func timedCheck(name string, fn func() string) check {
 	return check{Name: name, Value: value, Duration: duration.String()}
 }
 
+// writeReport writes the HTML report to -out, creating the parent
+// directory if needed. That matters for the cross-compiled binary: it's
+// commonly scp'd somewhere and run outside the repo, where the default
+// build_test/ directory doesn't exist yet.
 func writeReport(data reportData) (string, error) {
-	dir, err := os.Getwd()
+	outPath, err := filepath.Abs(*out)
 	if err != nil {
 		return "", err
 	}
-	outPath := filepath.Join(dir, "build_test", "report.html")
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		return "", err
+	}
 
 	f, err := os.Create(outPath)
 	if err != nil {

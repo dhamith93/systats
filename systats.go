@@ -3,10 +3,17 @@ package systats
 import "fmt"
 
 const (
+	// Unit constants for GetMemory, GetSwap and Disk.Convert. These are
+	// binary units despite the names - Kilobyte is KiB, Megabyte is MiB,
+	// Gigabyte is GiB - matching what free(1), df(1) and top(1) report.
 	Byte     string = "B"
 	Kilobyte string = "KB"
 	Megabyte string = "MB"
 	Gigabyte string = "GB"
+
+	// Sort orders for GetTopProcesses.
+	SortByCPU    string = "cpu"
+	SortByMemory string = "memory"
 
 	// CPUUsageInstant (default) computes each process's CPU usage over a
 	// short live sampling window (like `top`) - correct for monitoring
