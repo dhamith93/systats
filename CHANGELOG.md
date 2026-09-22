@@ -5,6 +5,19 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [v0.3.0] - 2026-09-22
+
+The headline changes are that `GetMemory`/`GetCPU` can now report a
+container's own cgroup limits instead of the host's numbers, that no
+external binary is shelled out for stats collection any more, and that
+disk I/O, TCP connection states and protocol counters are now available.
+
+Two changes need attention when upgrading: JSON field names are now
+lowerCamelCase, and `CPU.NoOfCores` means logical CPUs rather than
+physical cores. See **Changed** below.
+
 ### Removed
 - Shelled-out `ps`, `df`, `ip`, `lsof`, and `whereis`/`GetExecPath` -
   replaced with `/proc`, `/sys`, `net.Interfaces()`, and
@@ -109,8 +122,7 @@ All notable changes to this project are documented here, following the
 - All subprocess calls now have a default 5s timeout instead of being
   able to hang indefinitely.
 
+## [v0.2.0] - 2022-07-11
+
 For `v0.2.0` and earlier, see the [git tags](../../tags) or
 [releases](../../releases).
-
-## [v0.2.0] - 2022-07-11
-See git history.
