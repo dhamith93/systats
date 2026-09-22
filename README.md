@@ -1,10 +1,26 @@
 # systats
 
-Go module to get linux system stats.
+Linux system stats for Go services that need to report on themselves and the box they're running on - health endpoints, custom node agents, edge devices.
 
 [![Go](https://github.com/dhamith93/systats/actions/workflows/go.yml/badge.svg)](https://github.com/dhamith93/systats/actions/workflows/go.yml)
 
-Provides following information on systems:
+One import, one struct, one dependency (`golang.org/x/sys`). What makes it different from the bigger libraries:
+
+* **It knows it's in a container.** Set `ContainerAware` and `GetMemory`/`GetCPU`/`GetPressure` report your own cgroup limits (v1 and v2) instead of the host's. A pod capped at 512MB says `512`, not the node's 64GB - which is the difference between a useful health check and one that reads "memory at 6%" right up until the OOM kill.
+* **Pressure stall information.** `/proc/pressure` tells you whether the machine is *saturated*, not just busy. Rarely exposed by Go libraries.
+* **No subprocess for any stats call.** Everything comes from `/proc` and `/sys` directly, so it works on a minimal image where `ps` and `df` aren't installed. Two calls are the exception and do shell out: `IsServiceRunning` (`systemctl`) and `GetSystem`'s logged-in user list (`who`).
+* **Every path is a struct field.** `ProcPath`, `SysClassNetPath`, `PressurePath` and the rest are injectable per-instance, not a global `HOST_PROC` env var - so tests stay parallel-safe and you can point it at a fixture tree.
+
+## When to use something else
+
+This is deliberately narrow. Reach for:
+
+* [**gopsutil**](https://github.com/shirou/gopsutil) if you need macOS or Windows, or want to enumerate *other* containers from the host. systats is Linux-only and reports on its **own** cgroup.
+* [**prometheus/procfs**](https://github.com/prometheus/procfs) if you want exhaustive raw `/proc` fields rather than a curated set.
+* [**node_exporter**](https://github.com/prometheus/node_exporter) if you want a metrics pipeline rather than a library to embed.
+
+## What it collects
+
 * System
 	* Returns OS, Hostname, Kernel, Up time, last boot date, timezone, logged in users list
 * CPU
