@@ -10,13 +10,21 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.18 is the floor declared in go.mod - testing only the latest
+        # would let a newer stdlib call (errors.Join, say) slip in and
+        # break every consumer still on the declared minimum.
+        go-version: [ '1.18', '1.24' ]
+    name: build (go ${{ matrix.go-version }})
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: ${{ matrix.go-version }}
 
     - name: Build
       run: go build -v ./...
@@ -25,6 +33,9 @@ jobs:
       run: go vet ./...
 
     - name: Check formatting
+      # gofmt output changes between releases, so pin the check to one
+      # version rather than failing on a older formatter's preferences.
+      if: matrix.go-version == '1.24'
       run: |
         fmt_out="$(gofmt -l .)"
         if [ -n "$fmt_out" ]; then
