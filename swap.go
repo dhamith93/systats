@@ -18,10 +18,10 @@ type Swap struct {
 	Used           float64 `json:"used"`
 	Time           int64   `json:"time"`
 	Total          float64 `json:"total"`
-	Unit           string  `json:"unit"`
+	Unit           Unit    `json:"unit"`
 }
 
-func getSwap(systats *SyStats, unit string) (Swap, error) {
+func getSwap(systats *SyStats, unit Unit) (Swap, error) {
 	output := Swap{Unit: unit}
 
 	// Resolved first so an unsupported unit fails before any file I/O.

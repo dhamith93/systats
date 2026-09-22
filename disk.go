@@ -32,7 +32,7 @@ type DiskUsage struct {
 	Used      float64 `json:"used"`
 	Available float64 `json:"available"`
 	Usage     string  `json:"usage"`
-	Unit      string  `json:"unit"`
+	Unit      Unit    `json:"unit"`
 }
 
 // InodeUsage holds information on single disk inode usage
@@ -173,7 +173,7 @@ func usagePercent(used, avail uint64) string {
 // bytesPerUnit is how many bytes one of each unit holds. All binary, so
 // every factor is a power of two and conversions through it are exact in
 // float64.
-var bytesPerUnit = map[string]float64{
+var bytesPerUnit = map[Unit]float64{
 	Byte:     1,
 	Kilobyte: 1024,
 	Megabyte: 1024 * 1024,
@@ -192,14 +192,14 @@ var bytesPerUnit = map[string]float64{
 // Note the pointer receiver: ranging over a []Disk gives copies, so
 // `for _, d := range disks { d.Convert(...) }` won't change the slice.
 // Index instead: `for i := range disks { disks[i].Convert(...) }`.
-func (d *Disk) Convert(unit string) error {
+func (d *Disk) Convert(unit Unit) error {
 	from, ok := bytesPerUnit[d.Usage.Unit]
 	if !ok {
-		return errors.New(d.Usage.Unit + " is not a supported unit to convert from")
+		return errors.New(string(d.Usage.Unit) + " is not a supported unit to convert from")
 	}
 	to, ok := bytesPerUnit[unit]
 	if !ok {
-		return errors.New(unit + " is not a supported unit to convert to")
+		return errors.New(string(unit) + " is not a supported unit to convert to")
 	}
 
 	// Normalize through bytes rather than special-casing each pair. Both

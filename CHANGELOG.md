@@ -6,6 +6,14 @@ All notable changes to this project are documented here, following the
 ## [Unreleased]
 
 ### Changed
+- **`Unit`, `SortOrder` and `CPUMode` are now defined types** instead of
+  bare strings. `GetMemory`/`GetSwap` take a `Unit`, `GetTopProcesses` a
+  `SortOrder`, and `SyStats.ProcessCPUMode` is a `CPUMode`. A misspelled
+  value is now a compile error rather than a runtime one. Untyped literals
+  (`GetMemory("MB")`) still work; passing a `string` variable no longer
+  does, and needs an explicit `systats.Unit(...)` conversion. Runtime
+  validation stays for values arriving from config or JSON. The types
+  marshal as plain strings, so JSON output is unchanged.
 - **`Disk.Convert` now returns an error** for an unrecognized unit, on
   either side of the conversion. It previously matched no branch, left the
   figures unconverted, and still stamped the new unit on them - so

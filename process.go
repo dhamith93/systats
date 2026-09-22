@@ -85,7 +85,7 @@ type procCandidate struct {
 	memUsage float64
 }
 
-func getTopProcesses(ctx context.Context, systats *SyStats, count int, sortBy string) ([]Process, error) {
+func getTopProcesses(ctx context.Context, systats *SyStats, count int, sortBy SortOrder) ([]Process, error) {
 	if err := validateSortBy(sortBy); err != nil {
 		return nil, err
 	}
@@ -423,19 +423,19 @@ func averageCPUPercent(cpuTicks, starttime uint64, uptimeSeconds float64) float6
 // falling back to CPU, which made a typo ("memroy") look like a working
 // call. An empty string is accepted as the CPU default so callers
 // relying on the zero value keep working.
-func validateSortBy(sortBy string) error {
+func validateSortBy(sortBy SortOrder) error {
 	switch sortBy {
 	case "", SortByCPU, SortByMemory:
 		return nil
 	default:
-		return errors.New(sortBy + " is not a supported sort order, want " + SortByCPU + " or " + SortByMemory)
+		return errors.New(string(sortBy) + " is not a supported sort order, want " + string(SortByCPU) + " or " + string(SortByMemory))
 	}
 }
 
 // sortAndLimit sorts candidates descending by CPU or memory usage and
 // truncates to count. Kept separate from getTopProcesses so it can be
 // unit-tested with synthetic data, without needing /proc.
-func sortAndLimit(candidates []procCandidate, sortBy string, count int) []procCandidate {
+func sortAndLimit(candidates []procCandidate, sortBy SortOrder, count int) []procCandidate {
 	if sortBy == SortByMemory {
 		sort.Slice(candidates, func(i, j int) bool { return candidates[i].memUsage > candidates[j].memUsage })
 	} else {

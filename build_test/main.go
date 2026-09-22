@@ -96,10 +96,10 @@ func main() {
 	// before v0.4.0, so a value here also proves that fix landed.
 	data.Checks = append(data.Checks, timedCheck("Memory total (B / KB / MB / GB)", func() string {
 		parts := make([]string, 0, 4)
-		for _, unit := range []string{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
+		for _, unit := range []systats.Unit{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
 			m, err := syStats.GetMemory(unit)
 			if err != nil {
-				parts = append(parts, "ERR("+unit+"): "+err.Error())
+				parts = append(parts, "ERR("+string(unit)+"): "+err.Error())
 				continue
 			}
 			parts = append(parts, fmt.Sprintf("%.2f %s", m.Total, m.Unit))

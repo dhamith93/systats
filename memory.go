@@ -28,7 +28,7 @@ type Memory struct {
 	Used      float64 `json:"used"`
 	Time      int64   `json:"time"`
 	Total     float64 `json:"total"`
-	Unit      string  `json:"unit"`
+	Unit      Unit    `json:"unit"`
 	// Limited is true when SyStats.ContainerAware found a real cgroup
 	// memory limit, in which case Total/Used/Available/Free/
 	// PercentageUsed reflect that limit instead of host-wide memory.
@@ -48,7 +48,7 @@ type memoryKiB struct {
 	limited        bool
 }
 
-func getMemory(systats *SyStats, unit string) (Memory, error) {
+func getMemory(systats *SyStats, unit Unit) (Memory, error) {
 	output := Memory{Unit: unit}
 
 	// Resolved first so an unsupported unit fails before any file I/O.
@@ -111,7 +111,7 @@ func parseMeminfo(content string) memoryKiB {
 // kibConverter returns the KiB-to-unit conversion for unit, or an error
 // for an unrecognized one. All four exported unit constants are
 // supported; the conversions are binary (see internal/unitconv).
-func kibConverter(unit string) (func(uint64) float64, error) {
+func kibConverter(unit Unit) (func(uint64) float64, error) {
 	switch unit {
 	case Byte:
 		return unitconv.KibToBytes, nil
@@ -122,7 +122,7 @@ func kibConverter(unit string) (func(uint64) float64, error) {
 	case Gigabyte:
 		return unitconv.KibToGB, nil
 	default:
-		return nil, errors.New(unit + " is not supported")
+		return nil, errors.New(string(unit) + " is not supported")
 	}
 }
 

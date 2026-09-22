@@ -10,30 +10,44 @@ import (
 // SyStats.CPUSampleWindow is left at its zero value.
 const defaultCPUSampleWindow = 300 * time.Millisecond
 
+// Unit is a size unit accepted by GetMemory, GetSwap and Disk.Convert.
+// It is a defined type so a misspelled unit is a compile error rather
+// than a runtime one; untyped constants like "MB" still work.
+type Unit string
+
+// Unit constants. These are binary units despite the names - Kilobyte is
+// KiB, Megabyte is MiB, Gigabyte is GiB - matching what free(1), df(1)
+// and top(1) report.
 const (
-	// Unit constants for GetMemory, GetSwap and Disk.Convert. These are
-	// binary units despite the names - Kilobyte is KiB, Megabyte is MiB,
-	// Gigabyte is GiB - matching what free(1), df(1) and top(1) report.
-	Byte     string = "B"
-	Kilobyte string = "KB"
-	Megabyte string = "MB"
-	Gigabyte string = "GB"
+	Byte     Unit = "B"
+	Kilobyte Unit = "KB"
+	Megabyte Unit = "MB"
+	Gigabyte Unit = "GB"
+)
 
-	// Sort orders for GetTopProcesses.
-	SortByCPU    string = "cpu"
-	SortByMemory string = "memory"
+// SortOrder is how GetTopProcesses ranks processes.
+type SortOrder string
 
+const (
+	SortByCPU    SortOrder = "cpu"
+	SortByMemory SortOrder = "memory"
+)
+
+// CPUMode selects how per-process CPU usage is calculated.
+type CPUMode string
+
+const (
 	// CPUUsageInstant (default) computes each process's CPU usage over a
 	// short live sampling window (like `top`) - correct for monitoring
 	// "what's using CPU right now", but GetTopProcesses pays at least
 	// the sampling window (300ms) in latency on every call.
-	CPUUsageInstant string = "instant"
+	CPUUsageInstant CPUMode = "instant"
 	// CPUUsageAverage computes each process's CPU usage as a lifetime
 	// average since it started (total CPU time / time since start),
 	// matching `ps`'s default %cpu. A single /proc read per process, no
 	// sampling wait - much faster, but can miss a process that's
 	// currently spiking after being idle for a long time.
-	CPUUsageAverage string = "average"
+	CPUUsageAverage CPUMode = "average"
 )
 
 // SyStats holds information used to collect data
@@ -54,7 +68,7 @@ type SyStats struct {
 	NetNetstatPath  string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
-	ProcessCPUMode string
+	ProcessCPUMode CPUMode
 	// ContainerAware, when true, makes GetMemory and GetCPU look for a
 	// cgroup (v1 or v2) memory/CPU limit applying to the calling process
 	// and report container-relative numbers instead of host-wide
@@ -138,11 +152,11 @@ func withRecover[T any](fn func() (T, error)) (result T, err error) {
 	return fn()
 }
 
-func (systats *SyStats) GetMemory(unit string) (Memory, error) {
+func (systats *SyStats) GetMemory(unit Unit) (Memory, error) {
 	return withRecover(func() (Memory, error) { return getMemory(systats, unit) })
 }
 
-func (systats *SyStats) GetSwap(unit string) (Swap, error) {
+func (systats *SyStats) GetSwap(unit Unit) (Swap, error) {
 	return withRecover(func() (Swap, error) { return getSwap(systats, unit) })
 }
 
@@ -192,14 +206,14 @@ func (systats *SyStats) IsServiceRunningWithContext(ctx context.Context, service
 	return isServiceRunning(ctx, service)
 }
 
-func (systats *SyStats) GetTopProcesses(count int, sort string) ([]Process, error) {
+func (systats *SyStats) GetTopProcesses(count int, sort SortOrder) ([]Process, error) {
 	return systats.GetTopProcessesWithContext(context.Background(), count, sort)
 }
 
 // GetTopProcessesWithContext is GetTopProcesses, abortable via ctx. In the
 // default CPUUsageInstant mode this blocks for CPUSampleWindow and then
 // walks every pid in /proc, so it is the call most worth bounding.
-func (systats *SyStats) GetTopProcessesWithContext(ctx context.Context, count int, sort string) ([]Process, error) {
+func (systats *SyStats) GetTopProcessesWithContext(ctx context.Context, count int, sort SortOrder) ([]Process, error) {
 	return withRecover(func() ([]Process, error) { return getTopProcesses(ctx, systats, count, sort) })
 }
 

@@ -605,7 +605,7 @@ func TestGetMemoryAllUnits(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
 
 	// Float division, deliberately: Gigabyte used to truncate 15.55 to 15.
-	cases := map[string]float64{
+	cases := map[systats.Unit]float64{
 		systats.Byte:     16315340 * 1024,
 		systats.Kilobyte: 16315340,
 		systats.Megabyte: 16315340.0 / 1024,
@@ -632,7 +632,7 @@ func TestGetMemoryAllUnits(t *testing.T) {
 
 func TestGetSwapAllUnits(t *testing.T) {
 	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
-	for _, unit := range []string{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
+	for _, unit := range []systats.Unit{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
 		if _, err := syStats.GetSwap(unit); err != nil {
 			t.Errorf("GetSwap(%q) returned error %s", unit, err.Error())
 		}

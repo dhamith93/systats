@@ -325,13 +325,13 @@ func TestGetProcessUnknownPid(t *testing.T) {
 }
 
 func TestValidateSortBy(t *testing.T) {
-	for _, ok := range []string{"", SortByCPU, SortByMemory} {
+	for _, ok := range []SortOrder{"", SortByCPU, SortByMemory} {
 		if err := validateSortBy(ok); err != nil {
 			t.Errorf("validateSortBy(%q) = %v, want nil", ok, err)
 		}
 	}
 	// A typo used to silently sort by CPU and report success.
-	for _, bad := range []string{"memroy", "CPU", "ram", "cpu "} {
+	for _, bad := range []SortOrder{"memroy", "CPU", "ram", "cpu "} {
 		if err := validateSortBy(bad); err == nil {
 			t.Errorf("validateSortBy(%q) = nil, want an error", bad)
 		}
