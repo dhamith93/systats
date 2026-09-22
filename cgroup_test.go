@@ -197,29 +197,29 @@ func TestApplyCgroupMemory(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			output := &Memory{Total: 999, Used: 111} // sentinel host-wide values
-			applyCgroupMemory(output, c.systats)
+			m := &memoryKiB{total: 999, used: 111} // sentinel host-wide values
+			applyCgroupMemory(m, c.systats)
 
-			if output.Limited != c.wantLimited {
-				t.Errorf("Limited = %v, want %v", output.Limited, c.wantLimited)
+			if m.limited != c.wantLimited {
+				t.Errorf("limited = %v, want %v", m.limited, c.wantLimited)
 			}
 			if !c.wantLimited {
-				if output.Total != 999 || output.Used != 111 {
-					t.Errorf("expected host-wide sentinel values untouched, got Total=%d Used=%d", output.Total, output.Used)
+				if m.total != 999 || m.used != 111 {
+					t.Errorf("expected host-wide sentinel values untouched, got total=%d used=%d", m.total, m.used)
 				}
 				return
 			}
-			if output.Total != c.wantTotal {
-				t.Errorf("Total = %d KiB, want %d KiB", output.Total, c.wantTotal)
+			if m.total != c.wantTotal {
+				t.Errorf("total = %d KiB, want %d KiB", m.total, c.wantTotal)
 			}
-			if output.Used != c.wantUsed {
-				t.Errorf("Used = %d KiB, want %d KiB", output.Used, c.wantUsed)
+			if m.used != c.wantUsed {
+				t.Errorf("used = %d KiB, want %d KiB", m.used, c.wantUsed)
 			}
-			if output.Available != output.Free {
-				t.Errorf("Available (%d) and Free (%d) should be equal when Limited", output.Available, output.Free)
+			if m.available != m.free {
+				t.Errorf("available (%d) and free (%d) should be equal when limited", m.available, m.free)
 			}
-			if output.Available != output.Total-output.Used {
-				t.Errorf("Available = %d, want Total-Used = %d", output.Available, output.Total-output.Used)
+			if m.available != m.total-m.used {
+				t.Errorf("available = %d, want total-used = %d", m.available, m.total-m.used)
 			}
 		})
 	}

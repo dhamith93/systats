@@ -16,23 +16,23 @@ func TestGetMemoryKB(t *testing.T) {
 		t.Errorf("Get memory returned error")
 	}
 
-	if got.Available != 8210776 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Available, 8210776)
+	if got.Available != 8018336 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Available, 8018336)
 		return
 	}
 
-	if got.Free != 3921162 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Free, 3921162)
+	if got.Free != 3829260 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Free, 3829260)
 		return
 	}
 
-	if got.Used != 8949452 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Used, 8949452)
+	if got.Used != 8739700 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Used, 8739700)
 		return
 	}
 
-	if got.Total != 16706908 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Total, 16706908)
+	if got.Total != 16315340 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Total, 16315340)
 		return
 	}
 
@@ -60,23 +60,23 @@ func TestGetMemoryMB(t *testing.T) {
 		t.Errorf("Get memory returned error")
 	}
 
-	if got.Available != 8018 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Available, 8018)
+	if got.Available != 8018336.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Available, 8018336.0/1024)
 		return
 	}
 
-	if got.Free != 3829 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Free, 3829)
+	if got.Free != 3829260.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Free, 3829260.0/1024)
 		return
 	}
 
-	if got.Used != 8739 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Used, 8739)
+	if got.Used != 8739700.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Used, 8739700.0/1024)
 		return
 	}
 
-	if got.Total != 16315 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Total, 16315)
+	if got.Total != 16315340.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Total, 16315340.0/1024)
 		return
 	}
 
@@ -112,16 +112,16 @@ func TestGetMemoryContainerAwareV2Limited(t *testing.T) {
 	wantTotal := unitconv.KibToKB(536870912 / 1024)
 	wantUsed := unitconv.KibToKB((104857600 - 10485760) / 1024)
 	if got.Total != wantTotal {
-		t.Errorf("Total = %d, want %d", got.Total, wantTotal)
+		t.Errorf("Total = %v, want %v", got.Total, wantTotal)
 	}
 	if got.Used != wantUsed {
-		t.Errorf("Used = %d, want %d", got.Used, wantUsed)
+		t.Errorf("Used = %v, want %v", got.Used, wantUsed)
 	}
 	if got.Available != got.Free {
-		t.Errorf("Available (%d) and Free (%d) should be equal when Limited", got.Available, got.Free)
+		t.Errorf("Available (%v) and Free (%v) should be equal when Limited", got.Available, got.Free)
 	}
 	if got.Available != got.Total-got.Used {
-		t.Errorf("Available = %d, want Total-Used = %d", got.Available, got.Total-got.Used)
+		t.Errorf("Available = %v, want Total-Used = %v", got.Available, got.Total-got.Used)
 	}
 }
 
@@ -144,10 +144,10 @@ func TestGetMemoryContainerAwareV1Limited(t *testing.T) {
 	wantTotal := unitconv.KibToKB(536870912 / 1024)
 	wantUsed := unitconv.KibToKB((104857600 - 10485760) / 1024) // proves total_inactive_file (not inactive_file) was used
 	if got.Total != wantTotal {
-		t.Errorf("Total = %d, want %d", got.Total, wantTotal)
+		t.Errorf("Total = %v, want %v", got.Total, wantTotal)
 	}
 	if got.Used != wantUsed {
-		t.Errorf("Used = %d, want %d", got.Used, wantUsed)
+		t.Errorf("Used = %v, want %v", got.Used, wantUsed)
 	}
 }
 
@@ -168,8 +168,8 @@ func TestGetMemoryContainerAwareUnlimitedFallsBackToHost(t *testing.T) {
 	}
 	// Should exactly match the plain host-wide TestGetMemoryMB values -
 	// no cgroup limit means no override at all.
-	if got.Total != 16315 {
-		t.Errorf("Total = %d, want 16315 (unchanged host-wide value)", got.Total)
+	if got.Total != 16315340.0/1024 {
+		t.Errorf("Total = %v, want 15932 (unchanged host-wide value)", got.Total)
 	}
 }
 
@@ -190,8 +190,8 @@ func TestGetMemoryContainerAwareFalseIgnoresCgroup(t *testing.T) {
 	if got.Limited {
 		t.Errorf("Limited = true, want false when ContainerAware is false")
 	}
-	if got.Total != 16315 {
-		t.Errorf("Total = %d, want 16315 (unchanged host-wide value)", got.Total)
+	if got.Total != 16315340.0/1024 {
+		t.Errorf("Total = %v, want 15932 (unchanged host-wide value)", got.Total)
 	}
 }
 
@@ -202,18 +202,18 @@ func TestGetSwapKB(t *testing.T) {
 		t.Errorf("Get swap returned error")
 	}
 
-	if got.Free != 2065559 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Free, 2065559)
+	if got.Free != 2017148 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Free, 2017148)
 		return
 	}
 
-	if got.Used != 81920 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Used, 81920)
+	if got.Used != 80000 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Used, 80000)
 		return
 	}
 
-	if got.Total != 2147479 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Total, 2147479)
+	if got.Total != 2097148 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Total, 2097148)
 		return
 	}
 
@@ -230,18 +230,18 @@ func TestGetSwapMB(t *testing.T) {
 		t.Errorf("Get swap returned error")
 	}
 
-	if got.Free != 2017 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Free, 2017)
+	if got.Free != 2017148.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Free, 2017148.0/1024)
 		return
 	}
 
-	if got.Used != 80 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Used, 80)
+	if got.Used != 80000.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Used, 80000.0/1024)
 		return
 	}
 
-	if got.Total != 2097 {
-		t.Errorf("Got invalid value. got: %d, want: %d", got.Total, 2097)
+	if got.Total != 2097148.0/1024 {
+		t.Errorf("Got invalid value. got: %v, want: %v", got.Total, 2097148.0/1024)
 		return
 	}
 
@@ -510,5 +510,48 @@ func TestCanConnect(t *testing.T) {
 	want := true
 	if status != want {
 		t.Errorf("Got invalid value. got: %v, want: %v", status, want)
+	}
+}
+
+// TestGetMemoryAllUnits covers Byte and Gigabyte, which were exported
+// constants the API used to reject.
+func TestGetMemoryAllUnits(t *testing.T) {
+	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
+
+	// Float division, deliberately: Gigabyte used to truncate 15.55 to 15.
+	cases := map[string]float64{
+		systats.Byte:     16315340 * 1024,
+		systats.Kilobyte: 16315340,
+		systats.Megabyte: 16315340.0 / 1024,
+		systats.Gigabyte: 16315340.0 / 1024 / 1024,
+	}
+	for unit, wantTotal := range cases {
+		got, err := syStats.GetMemory(unit)
+		if err != nil {
+			t.Errorf("GetMemory(%q) returned error %s", unit, err.Error())
+			continue
+		}
+		if got.Total != wantTotal {
+			t.Errorf("GetMemory(%q).Total = %v, want %v", unit, got.Total, wantTotal)
+		}
+		if got.Unit != unit {
+			t.Errorf("GetMemory(%q).Unit = %q", unit, got.Unit)
+		}
+	}
+
+	if _, err := syStats.GetMemory("furlongs"); err == nil {
+		t.Errorf("expected an error for an unsupported unit")
+	}
+}
+
+func TestGetSwapAllUnits(t *testing.T) {
+	syStats := systats.SyStats{MeminfoPath: "./test_files/meminfo.txt"}
+	for _, unit := range []string{systats.Byte, systats.Kilobyte, systats.Megabyte, systats.Gigabyte} {
+		if _, err := syStats.GetSwap(unit); err != nil {
+			t.Errorf("GetSwap(%q) returned error %s", unit, err.Error())
+		}
+	}
+	if _, err := syStats.GetSwap("furlongs"); err == nil {
+		t.Errorf("expected an error for an unsupported unit")
 	}
 }

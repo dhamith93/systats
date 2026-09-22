@@ -162,6 +162,13 @@ func usagePercent(used, avail uint64) string {
 	return strconv.Itoa(pct) + "%"
 }
 
+// Convert rewrites d's usage figures into unit, in place. The unit
+// constants are binary (Megabyte is MiB, Gigabyte is GiB), matching
+// GetMemory/GetSwap and what df(1) reports.
+//
+// Note the pointer receiver: ranging over a []Disk gives copies, so
+// `for _, d := range disks { d.Convert(...) }` won't change the slice.
+// Index instead: `for i := range disks { disks[i].Convert(...) }`.
 func (d *Disk) Convert(unit string) {
 	if d.Usage.Unit == Byte {
 		if unit == Kilobyte {

@@ -12,92 +12,126 @@ import (
 	"github.com/dhamith93/systats/internal/unitconv"
 )
 
-// Memory holds information on system memory usage
+// Memory holds information on system memory usage.
+//
+// The size fields are float64 in the requested Unit. They're not integers
+// because the larger units can't be represented usefully that way - 4 GiB
+// of RAM truncates to "3 GB", losing a fifth of the value.
 type Memory struct {
 	PercentageUsed float64 `json:"percentageUsed"`
 	// Available and Free are the same value when Limited: a cgroup has
 	// no "raw free pages" concept distinct from "room left before the
 	// limit" the way host /proc/meminfo separately tracks reclaimable
 	// buffers/cache.
-	Available uint64 `json:"available"`
-	Free      uint64 `json:"free"`
-	Used      uint64 `json:"used"`
-	Time      int64  `json:"time"`
-	Total     uint64 `json:"total"`
-	Unit      string `json:"unit"`
+	Available float64 `json:"available"`
+	Free      float64 `json:"free"`
+	Used      float64 `json:"used"`
+	Time      int64   `json:"time"`
+	Total     float64 `json:"total"`
+	Unit      string  `json:"unit"`
 	// Limited is true when SyStats.ContainerAware found a real cgroup
 	// memory limit, in which case Total/Used/Available/Free/
 	// PercentageUsed reflect that limit instead of host-wide memory.
 	Limited bool `json:"limited"`
 }
 
+// memoryKiB holds the figures in their native /proc/meminfo unit (KiB)
+// before conversion. Keeping them integral until the final conversion
+// means cgroup overrides and the percentage are computed on exact
+// values, with a single rounding step at the end.
+type memoryKiB struct {
+	total          uint64
+	free           uint64
+	available      uint64
+	used           uint64
+	percentageUsed float64
+	limited        bool
+}
+
 func getMemory(systats *SyStats, unit string) (Memory, error) {
-	output := Memory{}
-	output.Unit = unit
+	output := Memory{Unit: unit}
+
+	// Resolved first so an unsupported unit fails before any file I/O.
+	convert, err := kibConverter(unit)
+	if err != nil {
+		return output, err
+	}
 
 	meminfoStr, err := fileops.ReadFileWithError(systats.MeminfoPath)
 	if err != nil {
 		return output, err
 	}
 
-	meminfoSplit := strings.Split(meminfoStr, "\n")
-	var buffers, cached uint64
+	m := parseMeminfo(meminfoStr)
+	applyCgroupMemory(&m, systats)
 
-	for _, line := range meminfoSplit {
-		lineArr := strings.Fields(line)
-		if len(lineArr) == 0 {
-			continue
-		}
-		if lineArr[0] == "MemTotal:" {
-			output.Total = strops.ToUint64(lineArr[1])
-		}
-		if lineArr[0] == "MemFree:" {
-			output.Free = strops.ToUint64(lineArr[1])
-		}
-		if lineArr[0] == "MemAvailable:" {
-			output.Available = strops.ToUint64(lineArr[1])
-		}
-		if lineArr[0] == "Buffers:" {
-			buffers = strops.ToUint64(lineArr[1])
-		}
-		if lineArr[0] == "Cached:" {
-			cached = strops.ToUint64(lineArr[1])
-		}
-	}
-
-	if output.Total > 0 {
-		output.Used = output.Total - (output.Free + buffers + cached)
-		percentage := float64(output.Used) / float64(output.Total) * 100
-		output.PercentageUsed = percentage
-	}
-
+	output.Total = convert(m.total)
+	output.Free = convert(m.free)
+	output.Available = convert(m.available)
+	output.Used = convert(m.used)
+	output.PercentageUsed = m.percentageUsed
+	output.Limited = m.limited
 	output.Time = time.Now().Unix()
-
-	applyCgroupMemory(&output, systats)
-
-	if unit == Kilobyte {
-		output.Available = unitconv.KibToKB(output.Available)
-		output.Total = unitconv.KibToKB(output.Total)
-		output.Used = unitconv.KibToKB(output.Used)
-		output.Free = unitconv.KibToKB(output.Free)
-	} else if unit == Megabyte {
-		output.Available = unitconv.KibToMB(output.Available)
-		output.Total = unitconv.KibToMB(output.Total)
-		output.Used = unitconv.KibToMB(output.Used)
-		output.Free = unitconv.KibToMB(output.Free)
-	} else {
-		return output, errors.New(unit + " is not supported")
-	}
 
 	return output, nil
 }
 
-// applyCgroupMemory overrides output's fields with cgroup-relative values
-// when ContainerAware is set and a real memory limit is found. Any
-// failure along the way (no cgroup, unreadable files, no limit set)
-// leaves output exactly as the host-wide computation above already left
-// it - this never changes GetMemory's error behavior or return shape.
-func applyCgroupMemory(output *Memory, systats *SyStats) {
+// parseMeminfo reads the host-wide figures from /proc/meminfo content.
+func parseMeminfo(content string) memoryKiB {
+	m := memoryKiB{}
+	var buffers, cached uint64
+
+	for _, line := range strings.Split(content, "\n") {
+		lineArr := strings.Fields(line)
+		if len(lineArr) == 0 {
+			continue
+		}
+		switch lineArr[0] {
+		case "MemTotal:":
+			m.total = strops.ToUint64(lineArr[1])
+		case "MemFree:":
+			m.free = strops.ToUint64(lineArr[1])
+		case "MemAvailable:":
+			m.available = strops.ToUint64(lineArr[1])
+		case "Buffers:":
+			buffers = strops.ToUint64(lineArr[1])
+		case "Cached:":
+			cached = strops.ToUint64(lineArr[1])
+		}
+	}
+
+	if m.total > 0 {
+		m.used = m.total - (m.free + buffers + cached)
+		m.percentageUsed = float64(m.used) / float64(m.total) * 100
+	}
+
+	return m
+}
+
+// kibConverter returns the KiB-to-unit conversion for unit, or an error
+// for an unrecognized one. All four exported unit constants are
+// supported; the conversions are binary (see internal/unitconv).
+func kibConverter(unit string) (func(uint64) float64, error) {
+	switch unit {
+	case Byte:
+		return unitconv.KibToBytes, nil
+	case Kilobyte:
+		return unitconv.KibToKB, nil
+	case Megabyte:
+		return unitconv.KibToMB, nil
+	case Gigabyte:
+		return unitconv.KibToGB, nil
+	default:
+		return nil, errors.New(unit + " is not supported")
+	}
+}
+
+// applyCgroupMemory overrides m with cgroup-relative values when
+// ContainerAware is set and a real memory limit is found. Any failure
+// along the way (no cgroup, unreadable files, no limit set) leaves m
+// exactly as the host-wide parse left it - this never changes
+// GetMemory's error behavior or return shape.
+func applyCgroupMemory(m *memoryKiB, systats *SyStats) {
 	if !systats.ContainerAware {
 		return
 	}
@@ -126,7 +160,7 @@ func applyCgroupMemory(output *Memory, systats *SyStats) {
 
 	// Cgroup files report raw bytes; the rest of getMemory works in KiB
 	// (matching /proc/meminfo's native unit), so convert here to flow
-	// through the existing Kilobyte/Megabyte switch below unchanged.
+	// through the same unit conversion as the host-wide figures.
 	totalKiB := limitBytes / 1024
 	usedKiB := usedBytes / 1024
 	availableKiB := uint64(0)
@@ -134,14 +168,14 @@ func applyCgroupMemory(output *Memory, systats *SyStats) {
 		availableKiB = totalKiB - usedKiB
 	}
 
-	output.Total = totalKiB
-	output.Used = usedKiB
-	output.Available = availableKiB
-	output.Free = availableKiB
+	m.total = totalKiB
+	m.used = usedKiB
+	m.available = availableKiB
+	m.free = availableKiB
 	if totalKiB > 0 {
-		output.PercentageUsed = float64(usedKiB) / float64(totalKiB) * 100
+		m.percentageUsed = float64(usedKiB) / float64(totalKiB) * 100
 	}
-	output.Limited = true
+	m.limited = true
 }
 
 // readCgroupMemoryLimit reads the memory limit for dir. limited is false
