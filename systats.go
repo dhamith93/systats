@@ -66,6 +66,9 @@ type SyStats struct {
 	NetTCP6Path     string
 	NetSNMPPath     string
 	NetNetstatPath  string
+	// SysClassNetPath is the sysfs directory holding per-interface
+	// state and Rx/Tx counters.
+	SysClassNetPath string
 	// ProcessCPUMode selects how GetTopProcesses computes CPU usage:
 	// CPUUsageInstant (default, used when left empty) or CPUUsageAverage.
 	ProcessCPUMode CPUMode
@@ -116,6 +119,7 @@ func New() SyStats {
 		NetTCP6Path:     "/proc/net/tcp6",
 		NetSNMPPath:     "/proc/net/snmp",
 		NetNetstatPath:  "/proc/net/netstat",
+		SysClassNetPath: "/sys/class/net",
 		ProcessCPUMode:  CPUUsageInstant,
 		ContainerAware:  false,
 		CgroupRootPath:  "/sys/fs/cgroup",
@@ -182,11 +186,11 @@ func (systats *SyStats) GetSystemWithContext(ctx context.Context) (System, error
 }
 
 func (systats *SyStats) GetNetworks() ([]Network, error) {
-	return withRecover(func() ([]Network, error) { return getNetworks() })
+	return withRecover(func() ([]Network, error) { return getNetworks(systats) })
 }
 
 func (systats *SyStats) GetNetworkUsage(networkInterface string) NetworkUsage {
-	return getNetworkUsage(networkInterface)
+	return getNetworkUsage(systats, networkInterface)
 }
 
 // IsServiceRunning reports whether the service is active. It cannot

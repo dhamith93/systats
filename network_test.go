@@ -125,3 +125,49 @@ func TestEstablishedTCPInodesAfterRefactor(t *testing.T) {
 		t.Errorf("inode 0 (TIME_WAIT) should not be in the established set")
 	}
 }
+
+func sysClassNetFixtureStats() *SyStats {
+	return &SyStats{SysClassNetPath: "./test_files/sys_class_net"}
+}
+
+func TestGetNetworkUsageFromFixture(t *testing.T) {
+	got := getNetworkUsage(sysClassNetFixtureStats(), "eth0")
+
+	if got.State != "up" {
+		t.Errorf("State = %q, want %q", got.State, "up")
+	}
+	if got.RxBytes != 1234567890 {
+		t.Errorf("RxBytes = %d, want 1234567890", got.RxBytes)
+	}
+	if got.TxBytes != 987654321 {
+		t.Errorf("TxBytes = %d, want 987654321", got.TxBytes)
+	}
+	if got.RxPackets != 4500123 {
+		t.Errorf("RxPackets = %d, want 4500123", got.RxPackets)
+	}
+	if got.TxPackets != 3200456 {
+		t.Errorf("TxPackets = %d, want 3200456", got.TxPackets)
+	}
+}
+
+// Counters a kernel doesn't publish read as zero rather than failing the
+// whole call - wlan0's fixture has operstate and rx_bytes only.
+func TestGetNetworkUsagePartialCounters(t *testing.T) {
+	got := getNetworkUsage(sysClassNetFixtureStats(), "wlan0")
+
+	if got.State != "down" {
+		t.Errorf("State = %q, want %q", got.State, "down")
+	}
+	if got.TxBytes != 0 || got.RxPackets != 0 {
+		t.Errorf("missing counters should read 0, got %+v", got)
+	}
+}
+
+// An interface with no sysfs directory at all must not panic.
+func TestGetNetworkUsageUnknownInterface(t *testing.T) {
+	got := getNetworkUsage(sysClassNetFixtureStats(), "nope0")
+
+	if got != (NetworkUsage{}) {
+		t.Errorf("unknown interface = %+v, want the zero value", got)
+	}
+}

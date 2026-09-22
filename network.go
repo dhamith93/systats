@@ -33,7 +33,7 @@ type NetworkUsage struct {
 	TxPackets uint64 `json:"txPackets"`
 }
 
-func getNetworks() ([]Network, error) {
+func getNetworks(systats *SyStats) ([]Network, error) {
 	output := []Network{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -55,14 +55,8 @@ func getNetworks() ([]Network, error) {
 			Ip:         pickIP(addrs, true),
 			Ipv6:       pickIP(addrs, false),
 			MacAddress: iface.HardwareAddr.String(),
-			Usage: NetworkUsage{
-				State:     readAsString("/sys/class/net/" + iface.Name + "/operstate"),
-				RxBytes:   readAsUint64("/sys/class/net/" + iface.Name + "/statistics/rx_bytes"),
-				TxBytes:   readAsUint64("/sys/class/net/" + iface.Name + "/statistics/tx_bytes"),
-				RxPackets: readAsUint64("/sys/class/net/" + iface.Name + "/statistics/rx_packets"),
-				TxPackets: readAsUint64("/sys/class/net/" + iface.Name + "/statistics/tx_packets"),
-			},
-			Time: time.Now().Unix(),
+			Usage:      getNetworkUsage(systats, iface.Name),
+			Time:       time.Now().Unix(),
 		})
 	}
 
@@ -90,13 +84,14 @@ func pickIP(addrs []net.Addr, wantV4 bool) string {
 	return fallback
 }
 
-func getNetworkUsage(networkInterface string) NetworkUsage {
+func getNetworkUsage(systats *SyStats, networkInterface string) NetworkUsage {
+	base := path.Join(systats.SysClassNetPath, networkInterface)
 	return NetworkUsage{
-		State:     readAsString("/sys/class/net/" + networkInterface + "/operstate"),
-		RxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_bytes"),
-		TxBytes:   readAsUint64("/sys/class/net/" + networkInterface + "/statistics/tx_bytes"),
-		RxPackets: readAsUint64("/sys/class/net/" + networkInterface + "/statistics/rx_packets"),
-		TxPackets: readAsUint64("/sys/class/net/" + networkInterface + "/statistics/tx_packets"),
+		State:     readAsString(path.Join(base, "operstate")),
+		RxBytes:   readAsUint64(path.Join(base, "statistics", "rx_bytes")),
+		TxBytes:   readAsUint64(path.Join(base, "statistics", "tx_bytes")),
+		RxPackets: readAsUint64(path.Join(base, "statistics", "rx_packets")),
+		TxPackets: readAsUint64(path.Join(base, "statistics", "tx_packets")),
 	}
 }
 

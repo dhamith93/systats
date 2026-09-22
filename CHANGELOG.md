@@ -27,6 +27,10 @@ All notable changes to this project are documented here, following the
   818 MB. `InodeUsage` keeps integer fields - inodes are counts, not sizes.
 
 ### Added
+- **`SyStats.SysClassNetPath`** (default `/sys/class/net`) - the last
+  hardcoded path in the module. `GetNetworks` and `GetNetworkUsage` can now
+  be pointed at a fixture tree like every other collector, which is what
+  lets them be tested off a live Linux host.
 - **`WithContext` variants for the seven methods that can block**:
   `GetCPUWithContext`, `GetTopProcessesWithContext`,
   `GetProcessWithContext`, `GetSystemWithContext`,

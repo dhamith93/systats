@@ -349,22 +349,25 @@ func TestGetNetworks(t *testing.T) {
 	}
 }
 
+// Reads counters from the sysfs fixture rather than the live host, so it
+// passes anywhere. net.Interfaces() is still real - only the /sys reads
+// are redirected - so GetNetworks is exercised end to end.
 func TestGetNetworkUsage(t *testing.T) {
-	syStats := systats.New()
-	n, err := syStats.GetNetworks()
-	if err != nil {
-		t.Errorf("Get Network Usage returned error %s", err.Error())
+	syStats := systats.SyStats{SysClassNetPath: "./test_files/sys_class_net"}
+
+	out := syStats.GetNetworkUsage("eth0")
+	if out.State != "up" {
+		t.Errorf("Got invalid value for State. got: %q, want: %q", out.State, "up")
+	}
+	if out.RxBytes != 1234567890 {
+		t.Errorf("Got invalid value for Rx. got: %d, want: %d", out.RxBytes, 1234567890)
+	}
+	if out.TxBytes != 987654321 {
+		t.Errorf("Got invalid value for Tx. got: %d, want: %d", out.TxBytes, 987654321)
 	}
 
-	if len(n) > 0 {
-		out := syStats.GetNetworkUsage(n[0].Interface)
-		if out.RxBytes == 0 {
-			t.Errorf("Got invalid value for Rx. got: %d, want: > %d", out.RxBytes, 0)
-		}
-
-		if out.TxBytes == 0 {
-			t.Errorf("Got invalid value for Tx. got: %d, want: > %d", out.TxBytes, 0)
-		}
+	if _, err := syStats.GetNetworks(); err != nil {
+		t.Errorf("GetNetworks() returned error %s", err.Error())
 	}
 }
 
