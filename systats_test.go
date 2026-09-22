@@ -267,8 +267,20 @@ func TestGetCPU(t *testing.T) {
 		return
 	}
 
-	if cpu.NoOfCores != 4 {
-		t.Errorf("Got invalid value. got: %d, want: %d", cpu.NoOfCores, 4)
+	// NoOfCores is logical CPUs: the fixture has 8 processor entries, even
+	// though its "cpu cores" field says 4 (that's physical-per-socket).
+	if cpu.NoOfCores != 8 {
+		t.Errorf("Got invalid value. got: %d, want: %d", cpu.NoOfCores, 8)
+		return
+	}
+
+	if cpu.PhysicalCores != 4 {
+		t.Errorf("Got invalid value. got: %d, want: %d", cpu.PhysicalCores, 4)
+		return
+	}
+
+	if cpu.Sockets != 1 {
+		t.Errorf("Got invalid value. got: %d, want: %d", cpu.Sockets, 1)
 		return
 	}
 
