@@ -104,6 +104,15 @@ type SyStats struct {
 	// defaultCPUSampleWindow (300ms), so a hand-constructed SyStats{} does
 	// not end up sampling over no time at all.
 	CPUSampleWindow time.Duration
+	// ContainerSocketPath is a Docker-compatible API socket that
+	// GetContainers asks for container names, images, states and labels.
+	// Podman's is /run/podman/podman.sock. Empty disables the lookup;
+	// containers are still found and measured from their cgroups either
+	// way, just without names.
+	ContainerSocketPath string
+	// ContainerSocketTimeout bounds the metadata request. Zero means
+	// 2 seconds.
+	ContainerSocketTimeout time.Duration
 }
 
 // cpuSampleWindow resolves the configured sampling window, falling back to
@@ -139,6 +148,9 @@ func New() SyStats {
 		CgroupRootPath:  "/sys/fs/cgroup",
 		SelfCgroupPath:  "/proc/self/cgroup",
 		CPUSampleWindow: defaultCPUSampleWindow,
+
+		ContainerSocketPath:    "/var/run/docker.sock",
+		ContainerSocketTimeout: defaultContainerSocketTimeout,
 	}
 }
 
@@ -328,4 +340,40 @@ func (systats *SyStats) GetTemperatures() ([]Temperature, error) {
 // listen overflows and so on.
 func (systats *SyStats) GetProtocolStats() (ProtocolStats, error) {
 	return withRecover(func() (ProtocolStats, error) { return getProtocolStats(systats) })
+}
+
+// GetContainers returns every running container on this host - Docker,
+// Podman, containerd/CRI-O under Kubernetes, LXC and systemd-machined -
+// with its CPU, memory, network, block I/O, mount, pid and pressure
+// stats. Containers are found by walking the cgroup tree, so this works
+// without any runtime daemon; names, images and labels are added when
+// ContainerSocketPath answers (see Container.MetadataAvailable).
+//
+// It blocks for CPUSampleWindow once, however many containers there are.
+// Run it on the host, or in a container that can see the host's cgroup
+// tree and /proc (--pid=host). Mount usage needs root.
+//
+// A host with no containers returns an empty slice. A host with no cgroup
+// filesystem at all returns an error.
+func (systats *SyStats) GetContainers(unit Unit) ([]Container, error) {
+	return systats.GetContainersWithContext(context.Background(), unit)
+}
+
+// GetContainersWithContext is GetContainers, abortable via ctx - both the
+// CPU sampling window and the runtime API request.
+func (systats *SyStats) GetContainersWithContext(ctx context.Context, unit Unit) ([]Container, error) {
+	return withRecover(func() ([]Container, error) { return getContainers(ctx, systats, unit) })
+}
+
+// GetContainer returns one running container by full ID, name, or unique
+// ID prefix (such as the 12-character IDs docker ps shows). Names need
+// ContainerSocketPath to be reachable. Returns an error when nothing
+// matches or a prefix matches more than one container.
+func (systats *SyStats) GetContainer(unit Unit, idOrName string) (Container, error) {
+	return systats.GetContainerWithContext(context.Background(), unit, idOrName)
+}
+
+// GetContainerWithContext is GetContainer, abortable via ctx.
+func (systats *SyStats) GetContainerWithContext(ctx context.Context, unit Unit, idOrName string) (Container, error) {
+	return withRecover(func() (Container, error) { return getContainer(ctx, systats, unit, idOrName) })
 }

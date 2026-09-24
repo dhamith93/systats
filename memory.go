@@ -3,7 +3,6 @@ package systats
 import (
 	"errors"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -142,20 +141,9 @@ func applyCgroupMemory(m *memoryKiB, systats *SyStats) {
 		return
 	}
 
-	limitBytes, limited, err := readCgroupMemoryLimit(version, dir)
+	limitBytes, limited, usedBytes, err := readCgroupMemoryBytes(version, dir)
 	if err != nil || !limited {
 		return
-	}
-
-	usageBytes, err := readCgroupMemoryUsage(version, dir)
-	if err != nil {
-		return
-	}
-	inactiveFileBytes := readCgroupMemoryInactiveFileBytes(version, dir)
-
-	usedBytes := usageBytes
-	if inactiveFileBytes < usedBytes {
-		usedBytes -= inactiveFileBytes
 	}
 
 	// Cgroup files report raw bytes; the rest of getMemory works in KiB
@@ -176,6 +164,29 @@ func applyCgroupMemory(m *memoryKiB, systats *SyStats) {
 		m.percentageUsed = float64(usedKiB) / float64(totalKiB) * 100
 	}
 	m.limited = true
+}
+
+// readCgroupMemoryBytes reads dir's memory limit and its working-set
+// usage (raw usage minus reclaimable inactive file cache). limited is false
+// when no limit is configured, in which case limitBytes is 0 but usedBytes
+// is still valid - per-container stats want usage either way.
+func readCgroupMemoryBytes(version cgroupVersion, dir string) (limitBytes uint64, limited bool, usedBytes uint64, err error) {
+	limitBytes, limited, err = readCgroupMemoryLimit(version, dir)
+	if err != nil {
+		return 0, false, 0, err
+	}
+
+	usageBytes, err := readCgroupMemoryUsage(version, dir)
+	if err != nil {
+		return 0, false, 0, err
+	}
+	inactiveFileBytes := readCgroupMemoryInactiveFileBytes(version, dir)
+
+	usedBytes = usageBytes
+	if inactiveFileBytes < usedBytes {
+		usedBytes -= inactiveFileBytes
+	}
+	return limitBytes, limited, usedBytes, nil
 }
 
 // readCgroupMemoryLimit reads the memory limit for dir. limited is false
@@ -234,18 +245,7 @@ func readCgroupMemoryInactiveFileBytes(version cgroupVersion, dir string) uint64
 		return 0
 	}
 
-	stats := map[string]uint64{}
-	for _, line := range strings.Split(content, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			continue
-		}
-		value, err := strconv.ParseUint(fields[1], 10, 64)
-		if err != nil {
-			continue
-		}
-		stats[fields[0]] = value
-	}
+	stats := parseKeyValueStat(content)
 
 	if version == cgroupV1 {
 		if v, ok := stats["total_inactive_file"]; ok {
