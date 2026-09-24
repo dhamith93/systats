@@ -1,0 +1,14 @@
+overlay / overlay rw,relatime,lowerdir=/var/lib/docker/overlay2/l/A,upperdir=/var/lib/docker/overlay2/x/diff,workdir=/var/lib/docker/overlay2/x/work 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev tmpfs rw,nosuid,size=65536k,mode=755 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620 0 0
+sysfs /sys sysfs ro,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup cgroup2 ro,nosuid,nodev,noexec,relatime 0 0
+mqueue /dev/mqueue mqueue rw,nosuid,nodev,noexec,relatime 0 0
+shm /dev/shm tmpfs rw,nosuid,nodev,noexec,relatime,size=65536k 0 0
+/dev/sda2 /data ext4 rw,relatime 0 0
+/dev/sda2 /etc/resolv.conf ext4 rw,relatime 0 0
+/dev/sda2 /etc/hostname ext4 rw,relatime 0 0
+/dev/sda2 /etc/hosts ext4 rw,relatime 0 0
+/dev/sdb1 /missing\040volume xfs rw,relatime 0 0
+proc /proc/bus proc ro,nosuid,nodev,noexec,relatime 0 0
