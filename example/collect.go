@@ -23,13 +23,17 @@ type Dashboard struct {
 	Memory    GaugePanel
 	Swap      GaugePanel
 	Container *ContainerPanel // nil unless a cgroup limit was found
-	Pressure  PressurePanel
-	Disks     []DiskPanel
-	DiskIO    []DiskIOPanel
-	Networks  []NetworkPanel
-	TCP       TCPPanel
-	Temps     []TempPanel
-	Processes []ProcessRow
+	// Containers are the other containers on this host, one card each.
+	// Distinct from Container above, which is this process's own cgroup.
+	Containers     []ContainerCard
+	ContainersNote string
+	Pressure       PressurePanel
+	Disks          []DiskPanel
+	DiskIO         []DiskIOPanel
+	Networks       []NetworkPanel
+	TCP            TCPPanel
+	Temps          []TempPanel
+	Processes      []ProcessRow
 
 	// Problems collects per-panel failures instead of aborting the whole
 	// page. On a non-Linux host almost everything lands here, and the
@@ -91,6 +95,39 @@ type ContainerPanel struct {
 	AllocatedCores string
 	CPUGauge       Gauge
 	HostCores      int
+}
+
+// ContainerCard is one container on this host, from GetContainers. The
+// rates come from two samples diffed with Container.RatesSince.
+type ContainerCard struct {
+	Name     string
+	ShortID  string
+	Image    string
+	Runtime  string
+	State    string
+	Running  bool
+	CPUGauge Gauge
+	MemGauge Gauge
+	CPU      string
+	Memory   string
+	RxRate   string
+	TxRate   string
+	Read     string
+	Write    string
+	Pids     Bar
+	// Throttled and OOMKills are the "something is wrong" counters: a
+	// container pinned at its CPU quota, or one losing processes to the
+	// OOM killer.
+	Throttled string
+	OOMKills  uint64
+	Mounts    []ContainerMountRow
+	Notes     []string
+}
+
+type ContainerMountRow struct {
+	MountPoint string
+	Bar        Bar
+	Usage      string
 }
 
 type PressurePanel struct {
@@ -199,6 +236,7 @@ func collect(ctx context.Context, cfg Config) Dashboard {
 	// second sampling window per call in the default instant mode. On real
 	// hardware that is ~6ms instead of ~320ms for the same table.
 	host.ProcessCPUMode = systats.CPUUsageAverage
+	host.ContainerSocketPath = cfg.ContainerSocket
 
 	// Separate value, not host with a flag flipped - see the note above.
 	cgroup := systats.New()
@@ -333,6 +371,15 @@ func collect(ctx context.Context, cfg Config) Dashboard {
 			return
 		}
 		d.Processes = buildProcessRows(procs)
+	})
+
+	run(func() {
+		cards, note, err := sampleContainers(ctx, &host, cfg.Unit, cfg.SampleInterval)
+		if err != nil {
+			fail("Containers", err)
+			return
+		}
+		d.Containers, d.ContainersNote = cards, note
 	})
 
 	run(func() {
@@ -622,6 +669,132 @@ func sampleNetworks(ctx context.Context, s *systats.SyStats, interval time.Durat
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Interface < out[j].Interface })
 	return out, nil
+}
+
+// sampleContainers reads every container on the host twice, interval
+// apart, and turns the cumulative network and block I/O counters into
+// rates with RatesSince. CPU needs no second pass: GetContainers already
+// samples it over CPUSampleWindow, for all containers at once.
+func sampleContainers(ctx context.Context, s *systats.SyStats, unit systats.Unit, interval time.Duration) ([]ContainerCard, string, error) {
+	before, err := s.GetContainersWithContext(ctx, unit)
+	if err != nil {
+		return nil, "", err
+	}
+
+	start := time.Now()
+	if err := sleepCtx(ctx, interval); err != nil {
+		return nil, "", err
+	}
+
+	after, err := s.GetContainersWithContext(ctx, unit)
+	if err != nil {
+		return nil, "", err
+	}
+	elapsed := time.Since(start).Seconds()
+
+	prev := make(map[string]systats.Container, len(before))
+	for _, c := range before {
+		prev[c.ID] = c
+	}
+
+	cards := make([]ContainerCard, 0, len(after))
+	named := 0
+	for _, c := range after {
+		var rates *systats.ContainerRates
+		if p, ok := prev[c.ID]; ok {
+			r := c.RatesSince(p, elapsed)
+			rates = &r
+		}
+		if c.MetadataAvailable {
+			named++
+		}
+		cards = append(cards, buildContainerCard(c, rates))
+	}
+	sort.Slice(cards, func(i, j int) bool { return cards[i].Name < cards[j].Name })
+
+	note := ""
+	switch {
+	case len(cards) == 0 || named > 0:
+	case s.ContainerSocketPath == "":
+		note = "No container runtime socket configured, so containers are listed by ID. Stats come from the cgroup tree either way."
+	default:
+		note = "No container runtime socket answered at " + s.ContainerSocketPath +
+			", so containers are listed by ID. Stats come from the cgroup tree either way."
+	}
+	return cards, note, nil
+}
+
+func buildContainerCard(c systats.Container, rates *systats.ContainerRates) ContainerCard {
+	card := ContainerCard{
+		Name:    c.Name,
+		ShortID: c.ShortID,
+		Image:   c.Image,
+		Runtime: c.Runtime,
+		State:   c.State,
+		Running: c.State == "running",
+		RxRate:  "-", TxRate: "-", Read: "-", Write: "-",
+	}
+	if card.Name == "" {
+		card.Name = c.ShortID
+	}
+
+	if c.CPU.Limited {
+		card.CPUGauge = newGauge(c.CPU.PercentOfLimit, fmt.Sprintf("%.0f%%", c.CPU.PercentOfLimit), "of limit")
+		card.CPU = fmt.Sprintf("%.2f of %.2f cores", c.CPU.CoresUsed, c.CPU.AllocatedCores)
+	} else {
+		card.CPUGauge = newGauge(c.CPU.PercentOfHost, fmt.Sprintf("%.0f%%", c.CPU.PercentOfHost), "of host")
+		card.CPU = fmt.Sprintf("%.2f cores, no limit", c.CPU.CoresUsed)
+	}
+
+	m := c.Memory
+	caption := "of host"
+	if m.Limited {
+		caption = "of limit"
+	}
+	card.MemGauge = newGauge(m.PercentageUsed, fmt.Sprintf("%.0f%%", m.PercentageUsed), caption)
+	card.Memory = fmt.Sprintf("%s of %s", size(m.Used, m.Unit), size(m.Limit, m.Unit))
+
+	if rates != nil {
+		if c.Network.Accessible {
+			card.RxRate = rate(rates.RxBytesPerSec)
+			card.TxRate = rate(rates.TxBytesPerSec)
+		}
+		card.Read = rate(rates.ReadBytesPerSec)
+		card.Write = rate(rates.WriteBytesPerSec)
+	}
+
+	if c.Pids.Limited {
+		pct := 100 * float64(c.Pids.Current) / float64(c.Pids.Max)
+		card.Pids = newBar(pct, "pids", fmt.Sprintf("%d / %d", c.Pids.Current, c.Pids.Max))
+	} else {
+		card.Pids = newBar(0, "pids", fmt.Sprintf("%d", c.Pids.Current))
+	}
+
+	if c.CPU.Periods > 0 {
+		card.Throttled = fmt.Sprintf("%.1f%% of periods", 100*float64(c.CPU.ThrottledPeriods)/float64(c.CPU.Periods))
+	}
+	card.OOMKills = c.Memory.OOMKills
+
+	for _, mt := range c.Mounts {
+		row := ContainerMountRow{MountPoint: mt.MountPoint, Usage: "no access"}
+		if mt.Accessible && mt.Total > 0 {
+			pct := 100 * mt.Used / mt.Total
+			row.Bar = newBar(pct, mt.MountPoint, fmt.Sprintf("%.0f%%", pct))
+			row.Usage = fmt.Sprintf("%s of %s", size(mt.Used, mt.Unit), size(mt.Total, mt.Unit))
+		}
+		card.Mounts = append(card.Mounts, row)
+	}
+
+	if c.Network.SharesHostNetwork {
+		card.Notes = append(card.Notes, "host network: rates are the host's")
+	}
+	if !c.Network.Accessible {
+		card.Notes = append(card.Notes, "network namespace not readable")
+	}
+	if c.PodUID != "" {
+		card.Notes = append(card.Notes, "pod "+c.PodUID)
+	}
+	return card
 }
 
 // deltaPerSec guards the counter-reset case: these are monotonic until an

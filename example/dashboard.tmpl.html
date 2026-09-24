@@ -102,6 +102,10 @@ td.trunc { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-sp
 footer { max-width: 1280px; margin: 1.75rem auto 0; color: var(--muted); font-size: .78rem; }
 footer code { background: var(--faint); padding: .1rem .35rem; border-radius: 4px; }
 .problems { margin-top: 1rem; }
+.ctr-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
+.ctr-head b { font-size: .95rem; }
+.ctr-sub { color: var(--muted); font-size: .75rem; margin-bottom: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctr-gauges { display: flex; gap: .4rem; justify-content: space-around; flex-wrap: wrap; }
 .problems li { margin-bottom: .25rem; }
 </style>
 </head>
@@ -380,6 +384,61 @@ footer code { background: var(--faint); padding: .1rem .35rem; border-radius: 4p
   {{end}}
 
 </div>
+
+{{if .Containers}}
+<div class="panel span-all" style="margin-top:1rem">
+  <h2>Containers on this host <span class="pill pill-muted">{{len .Containers}}</span></h2>
+  <div class="grid wide">
+    {{range .Containers}}
+    <div class="panel">
+      <div class="ctr-head">
+        <b>{{.Name}}</b>
+        {{if .Running}}<span class="pill pill-ok">{{.State}}</span>{{else}}<span class="pill pill-warn">{{.State}}</span>{{end}}
+        <span class="pill pill-muted">{{.Runtime}}</span>
+        {{if .OOMKills}}<span class="pill pill-crit">{{.OOMKills}} OOM kills</span>{{end}}
+      </div>
+      <div class="ctr-sub mono" title="{{.Image}}">{{.ShortID}}{{if .Image}} · {{.Image}}{{end}}</div>
+      <div class="ctr-gauges">
+        <div style="text-align:center">{{template "gauge" .CPUGauge}}<div class="note">{{.CPU}}</div></div>
+        <div style="text-align:center">{{template "gauge" .MemGauge}}<div class="note">{{.Memory}}</div></div>
+      </div>
+      <div class="stats" style="margin-top:.8rem">
+        <div><span class="k">Network rx / tx</span><span class="v">{{.RxRate}} / {{.TxRate}}</span></div>
+        <div><span class="k">Disk read / write</span><span class="v">{{.Read}} / {{.Write}}</span></div>
+        {{if .Throttled}}<div><span class="k">CPU throttled</span><span class="v">{{.Throttled}}</span></div>{{end}}
+      </div>
+      <div style="margin-top:.7rem">
+        <div class="bar-line">
+          <span class="lbl">{{.Pids.Label}}</span>
+          <span class="track"><span class="fill" style="width:{{.Pids.Width}}%;background:{{.Pids.Color}}"></span></span>
+          <span class="val">{{.Pids.Value}}</span>
+        </div>
+      </div>
+      {{if .Mounts}}
+      <table style="margin-top:.7rem">
+        <thead><tr><th>Mount</th><th style="width:30%">Usage</th><th class="num">Used</th></tr></thead>
+        <tbody>
+        {{range .Mounts}}
+          <tr>
+            <td class="mono trunc" title="{{.MountPoint}}">{{.MountPoint}}</td>
+            <td>{{if .Bar.Width}}<span class="track" style="display:block"><span class="fill" style="width:{{.Bar.Width}}%;background:{{.Bar.Color}}"></span></span>{{end}}</td>
+            <td class="num">{{.Usage}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{end}}
+      {{range .Notes}}<p class="note" style="margin:.5rem 0 0">{{.}}</p>{{end}}
+    </div>
+    {{end}}
+  </div>
+  {{if .ContainersNote}}<p class="note" style="margin:.9rem 0 0">{{.ContainersNote}}</p>{{end}}
+  <p class="note" style="margin:.5rem 0 0">
+    From <code>GetContainers</code>: each container's own cgroup and network namespace, read from the host.
+    Mount sizes are the backing filesystem's, so the root overlay shows the host disk that holds the image layers.
+  </p>
+</div>
+{{end}}
 
 {{if .Processes}}
 <div class="panel span-all" style="margin-top:1rem">

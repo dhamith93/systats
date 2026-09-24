@@ -41,6 +41,9 @@ type Config struct {
 	// disk and network counters into rates. Longer is steadier.
 	SampleInterval time.Duration
 	TopProcesses   int
+	// ContainerSocket is the Docker-compatible API socket used to name
+	// the host's containers. Stats don't depend on it.
+	ContainerSocket string
 }
 
 func main() {
@@ -53,6 +56,7 @@ func main() {
 		sampleInterval = flag.Duration("sample-interval", time.Second, "interval between the two reads used for disk and network rates")
 		top            = flag.Int("top", 8, "how many processes to list")
 		timeout        = flag.Duration("timeout", 30*time.Second, "overall deadline for one collection")
+		socket         = flag.String("container-socket", "/var/run/docker.sock", "Docker-compatible API socket for container names (Podman: /run/podman/podman.sock)")
 	)
 	flag.Parse()
 
@@ -63,10 +67,11 @@ func main() {
 	}
 
 	cfg := Config{
-		Unit:           u,
-		SampleWindow:   *sampleWindow,
-		SampleInterval: *sampleInterval,
-		TopProcesses:   *top,
+		Unit:            u,
+		SampleWindow:    *sampleWindow,
+		SampleInterval:  *sampleInterval,
+		TopProcesses:    *top,
+		ContainerSocket: *socket,
 	}
 
 	if *serve != "" {
@@ -201,6 +206,9 @@ func summarize(d Dashboard) {
 		if d.Container.CPULimited {
 			fmt.Printf("%-14s %s cores allocated\n", "Container", d.Container.AllocatedCores)
 		}
+	}
+	for _, c := range d.Containers {
+		fmt.Printf("%-14s %s: cpu %s, memory %s\n", "Container", c.Name, c.CPU, c.Memory)
 	}
 	if d.Pressure.Available {
 		for _, r := range d.Pressure.Resources {

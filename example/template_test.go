@@ -54,6 +54,21 @@ func fullDashboard() Dashboard {
 			CPUGauge:  newGauge(48, "48%", "of quota"),
 			HostCores: 2,
 		},
+		Containers: []ContainerCard{{
+			Name: "web", ShortID: "0123456789ab", Image: "nginx:1.27", Runtime: "docker",
+			State: "running", Running: true,
+			CPUGauge: newGauge(84, "84%", "of limit"), CPU: "0.42 of 0.50 cores",
+			MemGauge: newGauge(35, "35%", "of limit"), Memory: "90.00 MB of 256.00 MB",
+			RxRate: "12.00 KB/s", TxRate: "3.00 KB/s", Read: "idle", Write: "1.50 MB/s",
+			Pids:      newBar(17, "pids", "17 / 100"),
+			Throttled: "25.0% of periods", OOMKills: 2,
+			Mounts: []ContainerMountRow{
+				{MountPoint: "/", Bar: newBar(41, "/", "41%"), Usage: "41000.00 MB of 100000.00 MB"},
+				{MountPoint: "/var/lib/data", Usage: "no access"},
+			},
+			Notes: []string{"host network: rates are the host's"},
+		}},
+		ContainersNote: "No container runtime socket answered",
 		Pressure: PressurePanel{
 			Available: true, Limited: true,
 			Resources: []PressureRow{
@@ -123,6 +138,9 @@ func TestRenderFullDashboard(t *testing.T) {
 		"1.20 MB/s", "eth0", "192.168.1.50",
 		"Established", "coretemp", "Package id 0",
 		"postgres", "12.4%",
+		"Containers on this host", "nginx:1.27", "0.42 of 0.50 cores", "90.00 MB of 256.00 MB",
+		"1.50 MB/s", "17 / 100", "25.0% of periods", "2 OOM kills", "/var/lib/data", "no access",
+		"host network: rates are the host&#39;s", "No container runtime socket answered",
 		"Unavailable on this host", "no hwmon chips",
 	} {
 		if !strings.Contains(out, want) {

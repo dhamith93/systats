@@ -26,6 +26,7 @@ machine with no network.
 | `-sample-interval` | `1s` | Gap between the two reads used for disk/network rates |
 | `-top` | `8` | How many processes to list |
 | `-timeout` | `30s` | Overall deadline for one collection |
+| `-container-socket` | `/var/run/docker.sock` | Docker-compatible API socket used to name containers |
 
 ## Panels
 
@@ -33,6 +34,11 @@ CPU utilisation and per-core bars, memory and swap, pressure stall
 information, filesystems, disk I/O rates, network interfaces, TCP socket
 states, temperatures, and the top processes by CPU. A container banner
 appears above everything when a cgroup limit is detected.
+
+When run on a host with containers, a "Containers on this host" section
+shows one card per container: CPU and memory gauges against its limits,
+network and disk rates, pids, throttling, OOM kills and mount usage. Mount
+usage needs root; the rest works unprivileged.
 
 ## Reading it as an example
 

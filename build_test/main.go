@@ -113,6 +113,7 @@ func main() {
 	data.Sections = append(data.Sections, timedCollect("GetProtocolStats", func() (any, error) { return syStats.GetProtocolStats() }))
 	data.Sections = append(data.Sections, timedCollect("GetPressure", func() (any, error) { return syStats.GetPressure() }))
 	data.Sections = append(data.Sections, timedCollect("GetTemperatures", func() (any, error) { return syStats.GetTemperatures() }))
+	data.Sections = append(data.Sections, timedCollect("GetContainers", func() (any, error) { return syStats.GetContainers(systats.Megabyte) }))
 
 	// Compare against `sensors` where lm-sensors is installed, or
 	// /sys/class/thermal/thermal_zone0/temp on a Pi.
