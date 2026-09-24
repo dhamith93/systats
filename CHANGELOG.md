@@ -5,7 +5,30 @@ All notable changes to this project are documented here, following the
 
 ## [Unreleased]
 
+Nothing
+
+## [v0.5.0] - 2026-09-24
+
 ### Added
+- **`GetContainers` / `GetContainer`** - per-container monitoring from the
+  host. Every running container is found by walking the cgroup tree (v1
+  and v2; Docker, Podman, containerd and CRI-O under Kubernetes, LXC,
+  systemd-nspawn), and each is reported with CPU (cores used, % of host
+  and of its quota, throttling), memory (working set, limit, anon/file/
+  swap, OOM kills), per-interface network counters from its own network
+  namespace, per-device block I/O, mount usage, pids and cgroup v2 PSI.
+  CPU is sampled once for all containers, so the call costs one
+  `CPUSampleWindow` regardless of how many there are.
+  `Container.RatesSince` turns two samples into network, disk and
+  throttling rates. Names, images and labels come from a Docker-compatible
+  API socket (`ContainerSocketPath`, default `/var/run/docker.sock`) when
+  one answers; without it, containers are still listed by ID. Still no
+  new dependencies and no subprocesses.
+- `SyStats.ContainerSocketPath` and `SyStats.ContainerSocketTimeout`.
+- The example dashboard has a "Containers on this host" section, and a
+  `-container-socket` flag.
+- `make docker-test-host` runs the test harness in a container that can
+  see the host's containers.
 - **`example/`** - a single-page HTML dashboard built on the library,
   either written as a snapshot or served live with `-serve`. Every gauge
   is inline SVG computed in Go, so the page has no scripts and no external

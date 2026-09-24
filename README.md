@@ -7,6 +7,7 @@ Linux system stats for Go services that need to report on themselves and the box
 One import, one struct, one dependency (`golang.org/x/sys`). What makes it different from the bigger libraries:
 
 * **It knows it's in a container.** Set `ContainerAware` and `GetMemory`/`GetCPU`/`GetPressure` report your own cgroup limits (v1 and v2) instead of the host's. A pod capped at 512MB says `512`, not the node's 64GB - which is the difference between a useful health check and one that reads "memory at 6%" right up until the OOM kill.
+* **It can see the other containers too.** Run it on the host and `GetContainers` walks the cgroup tree and reports every Docker, Podman, Kubernetes, LXC and systemd-nspawn container with its own CPU, memory, network, block I/O, mounts, pids, throttling and OOM kills. No runtime daemon required, though it will ask the Docker socket for names if one's there.
 * **Pressure stall information.** `/proc/pressure` tells you whether the machine is *saturated*, not just busy. Rarely exposed by Go libraries.
 * **No subprocess for any stats call.** Everything comes from `/proc` and `/sys` directly, so it works on a minimal image where `ps` and `df` aren't installed. Two calls are the exception and do shell out: `IsServiceRunning` (`systemctl`) and `GetSystem`'s logged-in user list (`who`).
 * **Every path is a struct field.** `ProcPath`, `SysClassNetPath`, `PressurePath` and the rest are injectable per-instance, not a global `HOST_PROC` env var - so tests stay parallel-safe and you can point it at a fixture tree.
@@ -24,7 +25,8 @@ go run ./example -serve :8080 # or watch it live
 
 This is deliberately narrow. Reach for:
 
-* [**gopsutil**](https://github.com/shirou/gopsutil) if you need macOS or Windows, or want to enumerate *other* containers from the host. systats is Linux-only and reports on its **own** cgroup.
+* [**gopsutil**](https://github.com/shirou/gopsutil) if you need macOS or Windows. systats is Linux-only.
+* [**cAdvisor**](https://github.com/google/cadvisor) if you want per-container metrics exported to Prometheus with history, rather than a library call that returns the numbers now.
 * [**prometheus/procfs**](https://github.com/prometheus/procfs) if you want exhaustive raw `/proc` fields rather than a curated set.
 * [**node_exporter**](https://github.com/prometheus/node_exporter) if you want a metrics pipeline rather than a library to embed.
 
@@ -44,6 +46,8 @@ This is deliberately narrow. Reach for:
 	* CPU/memory/IO stall time (PSI), host-wide or per-cgroup
 * Temperatures
 	* Per-sensor readings from hwmon chips
+* Containers
+	* Every container on the host: CPU (cores used, % of limit, throttling), memory (working set, limit, anon/file/swap, OOM kills), network per interface, block I/O per device, mount usage, pids, PSI
 * Service status
 	* Returns if given service is active or not
 * Processes
@@ -355,8 +359,9 @@ func main() {
 ```
 
 These are `GetCPU`, `GetTopProcesses`, `GetProcess`, `GetSystem`,
-`IsServiceRunning`, `CanConnectExternal` and `IsPortOpen` - the ones that
-sample over a time window, shell out, or touch the network. The plain forms
+`GetContainers`, `GetContainer`, `IsServiceRunning`, `CanConnectExternal`
+and `IsPortOpen` - the ones that sample over a time window, shell out, or
+touch the network. The plain forms
 still work and just pass `context.Background()`, so nothing existing breaks.
 
 The other methods have no context variant on purpose. They only read local
@@ -397,6 +402,65 @@ Notes:
 
 * Defaults to off. When there's no cgroup or no limit configured, it silently falls back to the host-wide numbers - check `Memory.Limited`/`CPU.Limited` to tell which you got.
 * `AllocatedCores` is the quota in cores and can be fractional (Kubernetes `500m` is `0.5`). `NoOfCores`/`PhysicalCores` always mean host cores.
-* This reports on its *own* cgroup, so it belongs inside the container it describes. It won't enumerate other containers on a host.
+* This reports on its *own* cgroup, so it belongs inside the container it describes. To look at every container from the host instead, see [Containers on this host](#containers-on-this-host).
+
+### Containers on this host
+
+`GetContainers` is the other direction from `ContainerAware`: run it on the host and it reports on every container running there, one `Container` each.
+
+```go
+func main() {
+	syStats := systats.New()
+	containers, err := syStats.GetContainers(systats.Megabyte)
+
+	for _, c := range containers {
+		// c.Name ("web"), c.ShortID, c.Image, c.Runtime ("docker"), c.State
+		// c.CPU.CoresUsed, c.CPU.PercentOfLimit, c.CPU.ThrottledPeriods
+		// c.Memory.Used, c.Memory.Limit, c.Memory.OOMKills
+		// c.Network.Interfaces, c.BlockIO, c.Mounts, c.Pids, c.Pressure
+	}
+
+	web, err := syStats.GetContainer(systats.Megabyte, "web") // name, ID, or unique ID prefix
+}
+```
+
+Containers are found by walking `/sys/fs/cgroup` (v1 and v2), so this works for anything that gives a container its own cgroup: Docker and Podman (systemd or cgroupfs driver), containerd and CRI-O under Kubernetes, LXC and systemd-nspawn. Stats come from each container's cgroup, and network and mount figures from `/proc/<pid>` of one of its processes.
+
+Names, images and labels aren't in the cgroup tree. If a Docker-compatible API answers on `ContainerSocketPath` (default `/var/run/docker.sock`), they're filled in from it over plain HTTP; Podman users set `/run/podman/podman.sock`. When the socket isn't there, you get the same containers and stats with `MetadataAvailable` false and an empty `Name`.
+
+Like `GetDiskIO`, network and block I/O are cumulative counters. Poll twice and let `RatesSince` diff them:
+
+```go
+before, _ := syStats.GetContainer(systats.Megabyte, "web")
+time.Sleep(5 * time.Second)
+after, _ := syStats.GetContainer(systats.Megabyte, "web")
+rates := after.RatesSince(before, 5)
+// rates.RxBytesPerSec, rates.WriteBytesPerSec, rates.CPUThrottledPerSec, ...
+```
+
+CPU is different: `GetContainers` samples it over `CPUSampleWindow` itself, **once for all containers**, so the call takes about 300ms whether there are 2 containers or 200.
+
+Notes:
+
+* `CPU.CoresUsed` is in cores. `docker stats` shows it ×100 (`150%` is 1.5 cores). `PercentOfHost` divides by every host core instead, and `PercentOfLimit` by the `--cpus` quota. If `PercentOfLimit` stays near 100 and `ThrottledPeriods` keeps climbing, the container needs more CPU.
+* `Memory.Used` is the working set (usage minus reclaimable cache), matching `docker stats`. Without a limit, `Limit` is the host's total memory and `Limited` is false.
+* `Mounts` lists the root filesystem, volumes and bind mounts. Their sizes are those of the *backing* filesystem, so the root overlay reports the host disk that holds the image layers, not what the container has written.
+* `Network.SharesHostNetwork` marks `--network host` containers. Their interfaces are the host's, so don't add them up across containers.
+* A container with no processes left is skipped, and one that stops mid-call is dropped from the result rather than failing it.
+* `Pressure` is per container on cgroup v2 only. Check `Pressure.Available`.
+
+**Permissions.** The cgroup files and `/proc/<pid>/net/dev` are world-readable, so CPU, memory, pids, block I/O and network work unprivileged. Mount usage is read through `/proc/<pid>/root`, which needs root or `CAP_SYS_PTRACE`, and shows up as `Accessible: false` without it. The Docker socket usually needs root or the `docker` group.
+
+**From inside a container.** To run your agent itself as a container, give it the host's pid namespace and cgroup tree:
+
+```bash
+docker run --pid=host --cgroupns=host \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --cap-add SYS_PTRACE \
+  your-agent
+```
+
+`make docker-test-host` runs the test harness this way.
 * Also applies to plain systemd units with `MemoryMax=`/`CPUQuota=` set, not just containers.
 * `Load1`/`Load5`/`Load15` stay host-wide either way - there's no cgroup equivalent.

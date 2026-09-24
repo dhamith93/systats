@@ -1,4 +1,4 @@
-.PHONY: build-test run-test run-test-linux docker-test example example-serve example-linux
+.PHONY: build-test run-test run-test-linux docker-test docker-test-host example example-serve example-linux
 
 # Build the manual test harness for the current OS/arch (only a subset of
 # calls will work on macOS - see build_test/main.go output for per-call errors)
@@ -19,6 +19,16 @@ docker-test:
 
 docker-test-with-limits:
 	docker run --rm -v $(CURDIR):/src -w /src --cpus=0.5 --memory=256m golang:1.24 go run ./build_test
+
+# Run the harness in a container that can see the host's other containers:
+# the host's pid namespace (/proc for every container), its cgroup tree,
+# and the Docker socket for names. SYS_PTRACE lets mount usage be read
+# through /proc/<pid>/root.
+docker-test-host:
+	docker run --rm -v $(CURDIR):/src -w /src \
+		--pid=host --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
+		-v /var/run/docker.sock:/var/run/docker.sock --cap-add SYS_PTRACE \
+		golang:1.24 go run ./build_test
 
 # Render the example dashboard to example/dashboard.html
 example:
