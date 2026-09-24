@@ -444,12 +444,22 @@ Notes:
 
 * `CPU.CoresUsed` is in cores. `docker stats` shows it ×100 (`150%` is 1.5 cores). `PercentOfHost` divides by every host core instead, and `PercentOfLimit` by the `--cpus` quota. If `PercentOfLimit` stays near 100 and `ThrottledPeriods` keeps climbing, the container needs more CPU.
 * `Memory.Used` is the working set (usage minus reclaimable cache), matching `docker stats`. Without a limit, `Limit` is the host's total memory and `Limited` is false.
-* `Mounts` lists the root filesystem, volumes and bind mounts. Their sizes are those of the *backing* filesystem, so the root overlay reports the host disk that holds the image layers, not what the container has written.
+* `Mounts` lists the root filesystem, volumes and bind mounts. Their sizes are those of the *backing* filesystem, so the root overlay reports the host disk that holds the image layers - the same figures for every container - not what the container has written. For that, see the writable layer below.
 * `Network.SharesHostNetwork` marks `--network host` containers. Their interfaces are the host's, so don't add them up across containers.
 * A container with no processes left is skipped, and one that stops mid-call is dropped from the result rather than failing it.
 * `Pressure` is per container on cgroup v2 only. Check `Pressure.Available`.
 
-**Permissions.** The cgroup files and `/proc/<pid>/net/dev` are world-readable, so CPU, memory, pids, block I/O and network work unprivileged. Mount usage is read through `/proc/<pid>/root`, which needs root or `CAP_SYS_PTRACE`, and shows up as `Accessible: false` without it. The Docker socket usually needs root or the `docker` group.
+**Disk used by each container.** Set `ContainerLayerSize` to also measure each container's writable layer - everything it has written since it started, the SIZE column of `docker ps -s`:
+
+```go
+syStats.ContainerLayerSize = true
+containers, err := syStats.GetContainers(systats.Megabyte)
+// containers[0].Layer.Size, .Files, .Available
+```
+
+It's off by default because it walks every file in the layer, which can take seconds for a container that writes a lot; the walk stops when the context passed to `GetContainersWithContext` is cancelled. It works for any overlayfs-based runtime (Docker, Podman, containerd), finding the layer from the container's own mount table. Check `Layer.Available`: it's false when the root filesystem isn't overlayfs or the layer couldn't be read.
+
+**Permissions.** The cgroup files and `/proc/<pid>/net/dev` are world-readable, so CPU, memory, pids, block I/O and network work unprivileged. Mount usage and layer sizes are read through `/proc/<pid>/root`, which needs root or `CAP_SYS_PTRACE`, and show up as `Accessible`/`Available: false` without it. The Docker socket usually needs root or the `docker` group.
 
 **From inside a container.** To run your agent itself as a container, give it the host's pid namespace and cgroup tree:
 
@@ -458,8 +468,11 @@ docker run --pid=host --cgroupns=host \
   -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --cap-add SYS_PTRACE \
+  --security-opt apparmor=unconfined \
   your-agent
 ```
+
+The AppArmor opt-out is only needed for `ContainerLayerSize`. Layers are read through `/proc/1/root` (the host's root filesystem as seen by host init), and Docker's default profile blocks that access to processes outside the container.
 
 `make docker-test-host` runs the test harness this way.
 * Also applies to plain systemd units with `MemoryMax=`/`CPUQuota=` set, not just containers.

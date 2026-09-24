@@ -7,6 +7,16 @@ All notable changes to this project are documented here, following the
 
 Nothing
 
+## [v0.5.1] - 2026-09-24
+
+### Added
+
+- **`ContainerLayerSize`** - opt-in measurement of each container's
+  writable layer (`Container.Layer`): the disk it has actually written,
+  as `docker ps -s` shows. The root mount can't answer that, since it
+  reports the host disk that holds every container's layers. Off by
+  default because it walks every file in the layer.
+
 ## [v0.5.0] - 2026-09-24
 
 ### Added

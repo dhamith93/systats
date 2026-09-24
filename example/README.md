@@ -26,6 +26,7 @@ machine with no network.
 | `-sample-interval` | `1s` | Gap between the two reads used for disk/network rates |
 | `-top` | `8` | How many processes to list |
 | `-timeout` | `30s` | Overall deadline for one collection |
+| `-container-layers` | `true` | Measure each container's writable layer (walks its files; needs root) |
 | `-container-socket` | `/var/run/docker.sock` | Docker-compatible API socket used to name containers |
 
 ## Panels
@@ -37,8 +38,9 @@ appears above everything when a cgroup limit is detected.
 
 When run on a host with containers, a "Containers on this host" section
 shows one card per container: CPU and memory gauges against its limits,
-network and disk rates, pids, throttling, OOM kills and mount usage. Mount
-usage needs root; the rest works unprivileged.
+network and disk rates, pids, throttling, OOM kills, the writable layer
+size (what the container has written itself) and mount usage. Layer size
+and mount usage need root; the rest works unprivileged.
 
 ## Reading it as an example
 

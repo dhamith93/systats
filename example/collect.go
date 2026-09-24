@@ -120,8 +120,11 @@ type ContainerCard struct {
 	// OOM killer.
 	Throttled string
 	OOMKills  uint64
-	Mounts    []ContainerMountRow
-	Notes     []string
+	// Layer is the container's own disk usage (its writable layer), or
+	// why it wasn't measured.
+	Layer  string
+	Mounts []ContainerMountRow
+	Notes  []string
 }
 
 type ContainerMountRow struct {
@@ -237,6 +240,7 @@ func collect(ctx context.Context, cfg Config) Dashboard {
 	// hardware that is ~6ms instead of ~320ms for the same table.
 	host.ProcessCPUMode = systats.CPUUsageAverage
 	host.ContainerSocketPath = cfg.ContainerSocket
+	host.ContainerLayerSize = cfg.ContainerLayers
 
 	// Separate value, not host with a flag flipped - see the note above.
 	cgroup := systats.New()
@@ -676,7 +680,12 @@ func sampleNetworks(ctx context.Context, s *systats.SyStats, interval time.Durat
 // rates with RatesSince. CPU needs no second pass: GetContainers already
 // samples it over CPUSampleWindow, for all containers at once.
 func sampleContainers(ctx context.Context, s *systats.SyStats, unit systats.Unit, interval time.Duration) ([]ContainerCard, string, error) {
-	before, err := s.GetContainersWithContext(ctx, unit)
+	// Only the second snapshot's layer sizes are shown, so the first one
+	// skips the file walk. A copy rather than toggling s: s is shared with
+	// other goroutines, and flipping one of its fields would be a data race.
+	quick := *s
+	quick.ContainerLayerSize = false
+	before, err := quick.GetContainersWithContext(ctx, unit)
 	if err != nil {
 		return nil, "", err
 	}
@@ -775,8 +784,21 @@ func buildContainerCard(c systats.Container, rates *systats.ContainerRates) Cont
 	}
 	card.OOMKills = c.Memory.OOMKills
 
+	switch {
+	case c.Layer.Available:
+		card.Layer = fmt.Sprintf("%s in %d files", size(c.Layer.Size, c.Layer.Unit), c.Layer.Files)
+	case c.Layer.Path != "":
+		card.Layer = "needs root"
+	}
+
 	for _, mt := range c.Mounts {
 		row := ContainerMountRow{MountPoint: mt.MountPoint, Usage: "no access"}
+		// The root overlay reports the disk holding every container's
+		// layers - the same figures on every card. Say so, so it isn't
+		// read as this container's usage; that's Layer above.
+		if mt.MountPoint == "/" && mt.FSType == "overlay" {
+			row.MountPoint = "/ (host disk)"
+		}
 		if mt.Accessible && mt.Total > 0 {
 			pct := 100 * mt.Used / mt.Total
 			row.Bar = newBar(pct, mt.MountPoint, fmt.Sprintf("%.0f%%", pct))

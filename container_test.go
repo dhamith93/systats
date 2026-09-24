@@ -532,3 +532,74 @@ func TestV1ControllerDirNames(t *testing.T) {
 		t.Errorf("fallbacks: got %v", names)
 	}
 }
+
+func TestOverlayUpperDir(t *testing.T) {
+	mounts := "overlay / overlay rw,lowerdir=/l,upperdir=/var/lib/docker/overlay2/My\\040Layer/diff,workdir=/w 0 0\n" +
+		"overlay /data overlay rw,upperdir=/not/root 0 0\n"
+	if got := overlayUpperDir(mounts); got != "/var/lib/docker/overlay2/My Layer/diff" {
+		t.Errorf("got %q", got)
+	}
+	if got := overlayUpperDir("/dev/sda1 / ext4 rw 0 0\n"); got != "" {
+		t.Errorf("non-overlay root: got %q, want \"\"", got)
+	}
+}
+
+func TestGetContainersLayerSize(t *testing.T) {
+	s := containerFixture("cgroup_v2")
+	containers, err := s.GetContainers(Byte)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := byID(t, containers)[fixtureID1].Layer; l.Available || l.Unit != Byte {
+		t.Errorf("ContainerLayerSize off: got %+v, want not measured", l)
+	}
+
+	s.ContainerLayerSize = true
+	containers, err = s.GetContainers(Byte)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := byID(t, containers)
+
+	// Fixture layer: var/log/app.log (1000 bytes) + etc/app.conf (24 bytes).
+	want := ContainerLayer{Size: 1024, Unit: Byte, Files: 2, Path: "/var/lib/docker/overlay2/x/diff", Available: true}
+	if l := all[fixtureID1].Layer; l != want {
+		t.Errorf("got %+v, want %+v", l, want)
+	}
+	// No mounts file for this pid, so no overlay root to measure.
+	if l := all[fixtureID5].Layer; l.Available {
+		t.Errorf("container without an overlay root: got %+v, want not measured", l)
+	}
+}
+
+func TestLayerSizeCountsHardLinksOnce(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "sub", "data")
+	if err := os.WriteFile(file, make([]byte, 100), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(file, filepath.Join(dir, "hardlink")); err != nil {
+		t.Skipf("hard links unsupported: %v", err)
+	}
+	if err := os.Symlink(file, filepath.Join(dir, "symlink")); err != nil {
+		t.Fatal(err)
+	}
+
+	size, files, err := layerSize(context.Background(), dir)
+	if err != nil || size != 100 || files != 1 {
+		t.Errorf("got (%d bytes, %d files, %v), want (100, 1, nil)", size, files, err)
+	}
+
+	if _, _, err := layerSize(context.Background(), filepath.Join(dir, "missing")); err == nil {
+		t.Errorf("expected an error for an unreadable layer")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := layerSize(ctx, dir); err == nil {
+		t.Errorf("expected a cancelled context to stop the walk")
+	}
+}

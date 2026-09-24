@@ -113,6 +113,12 @@ type SyStats struct {
 	// ContainerSocketTimeout bounds the metadata request. Zero means
 	// 2 seconds.
 	ContainerSocketTimeout time.Duration
+	// ContainerLayerSize makes GetContainers measure each container's
+	// writable layer (Container.Layer) - the disk it has actually used, as
+	// `docker ps -s` shows. Off by default: it walks every file the
+	// container has written, which can take seconds for a busy one. The
+	// walk honors the context passed to GetContainersWithContext.
+	ContainerLayerSize bool
 }
 
 // cpuSampleWindow resolves the configured sampling window, falling back to

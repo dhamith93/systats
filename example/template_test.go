@@ -62,8 +62,9 @@ func fullDashboard() Dashboard {
 			RxRate: "12.00 KB/s", TxRate: "3.00 KB/s", Read: "idle", Write: "1.50 MB/s",
 			Pids:      newBar(17, "pids", "17 / 100"),
 			Throttled: "25.0% of periods", OOMKills: 2,
+			Layer: "42.50 MB in 1234 files",
 			Mounts: []ContainerMountRow{
-				{MountPoint: "/", Bar: newBar(41, "/", "41%"), Usage: "41000.00 MB of 100000.00 MB"},
+				{MountPoint: "/ (host disk)", Bar: newBar(41, "/", "41%"), Usage: "41000.00 MB of 100000.00 MB"},
 				{MountPoint: "/var/lib/data", Usage: "no access"},
 			},
 			Notes: []string{"host network: rates are the host's"},
@@ -139,7 +140,7 @@ func TestRenderFullDashboard(t *testing.T) {
 		"Established", "coretemp", "Package id 0",
 		"postgres", "12.4%",
 		"Containers on this host", "nginx:1.27", "0.42 of 0.50 cores", "90.00 MB of 256.00 MB",
-		"1.50 MB/s", "17 / 100", "25.0% of periods", "2 OOM kills", "/var/lib/data", "no access",
+		"1.50 MB/s", "17 / 100", "Writable layer", "42.50 MB in 1234 files", "/ (host disk)", "25.0% of periods", "2 OOM kills", "/var/lib/data", "no access",
 		"host network: rates are the host&#39;s", "No container runtime socket answered",
 		"Unavailable on this host", "no hwmon chips",
 	} {

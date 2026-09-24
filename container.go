@@ -52,7 +52,10 @@ type Container struct {
 	Network ContainerNetwork   `json:"network"`
 	BlockIO []ContainerBlockIO `json:"blockIo"`
 	Mounts  []ContainerMount   `json:"mounts"`
-	Pids    ContainerPids      `json:"pids"`
+	// Layer is the container's own disk usage - its writable layer. Only
+	// measured when SyStats.ContainerLayerSize is set.
+	Layer ContainerLayer `json:"layer"`
+	Pids  ContainerPids  `json:"pids"`
 	// Pressure is the container's own PSI. cgroup v1 has none, so check
 	// Pressure.Available.
 	Pressure Pressure `json:"pressure"`
@@ -160,8 +163,9 @@ type ContainerBlockIO struct {
 //
 // The sizes are those of the filesystem being mounted, not of what the
 // container has written to it. For the root overlay, that's the host
-// filesystem holding the image layers; for a bind mount, the host
-// filesystem the directory lives on.
+// filesystem holding the image layers - every container on the host shows
+// the same figures for "/". Container.Layer has the container's own
+// usage.
 type ContainerMount struct {
 	MountPoint string  `json:"mountPoint"`
 	Device     string  `json:"device"`
@@ -410,6 +414,14 @@ func collectContainers(ctx context.Context, systats *SyStats, unit Unit, idOrNam
 		c := containers[i]
 		if err := readContainerStats(&c, refs[i], systats, host, unit, bytesPer); err != nil {
 			continue // stopped mid-read; its cgroup is gone
+		}
+		c.Layer = ContainerLayer{Unit: unit}
+		if systats.ContainerLayerSize {
+			layer, err := readContainerLayer(ctx, systats.ProcPath, refs[i].pid, unit, bytesPer)
+			if err != nil {
+				return nil, err // only a cancelled ctx gets here
+			}
+			c.Layer = layer
 		}
 		applyContainerCPUSample(&c.CPU, usage1[i], usage2[i], ok1[i] && ok2[i], elapsed, host.cores)
 		out = append(out, c)

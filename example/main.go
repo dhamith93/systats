@@ -44,6 +44,9 @@ type Config struct {
 	// ContainerSocket is the Docker-compatible API socket used to name
 	// the host's containers. Stats don't depend on it.
 	ContainerSocket string
+	// ContainerLayers measures each container's writable layer, which
+	// walks every file it has written.
+	ContainerLayers bool
 }
 
 func main() {
@@ -56,6 +59,7 @@ func main() {
 		sampleInterval = flag.Duration("sample-interval", time.Second, "interval between the two reads used for disk and network rates")
 		top            = flag.Int("top", 8, "how many processes to list")
 		timeout        = flag.Duration("timeout", 30*time.Second, "overall deadline for one collection")
+		layers         = flag.Bool("container-layers", true, "measure each container's writable layer size (walks its files; needs root)")
 		socket         = flag.String("container-socket", "/var/run/docker.sock", "Docker-compatible API socket for container names (Podman: /run/podman/podman.sock)")
 	)
 	flag.Parse()
@@ -72,6 +76,7 @@ func main() {
 		SampleInterval:  *sampleInterval,
 		TopProcesses:    *top,
 		ContainerSocket: *socket,
+		ContainerLayers: *layers,
 	}
 
 	if *serve != "" {

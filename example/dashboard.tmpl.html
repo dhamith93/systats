@@ -405,6 +405,7 @@ footer code { background: var(--faint); padding: .1rem .35rem; border-radius: 4p
       <div class="stats" style="margin-top:.8rem">
         <div><span class="k">Network rx / tx</span><span class="v">{{.RxRate}} / {{.TxRate}}</span></div>
         <div><span class="k">Disk read / write</span><span class="v">{{.Read}} / {{.Write}}</span></div>
+        {{if .Layer}}<div><span class="k">Writable layer</span><span class="v">{{.Layer}}</span></div>{{end}}
         {{if .Throttled}}<div><span class="k">CPU throttled</span><span class="v">{{.Throttled}}</span></div>{{end}}
       </div>
       <div style="margin-top:.7rem">
@@ -435,7 +436,8 @@ footer code { background: var(--faint); padding: .1rem .35rem; border-radius: 4p
   {{if .ContainersNote}}<p class="note" style="margin:.9rem 0 0">{{.ContainersNote}}</p>{{end}}
   <p class="note" style="margin:.5rem 0 0">
     From <code>GetContainers</code>: each container's own cgroup and network namespace, read from the host.
-    Mount sizes are the backing filesystem's, so the root overlay shows the host disk that holds the image layers.
+    <b>Writable layer</b> is what the container has written itself, as <code>docker ps -s</code> shows.
+    Mount sizes are the whole filesystem each mount lives on, so the root overlay shows the host disk that holds every container's layers.
   </p>
 </div>
 {{end}}
